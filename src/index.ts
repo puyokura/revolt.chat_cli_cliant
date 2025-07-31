@@ -1,5 +1,3 @@
-
-
 import fs from 'fs';
 import path from 'path';
 
@@ -61,6 +59,13 @@ import {
   handleFriends
 } from './lib/commands';
 
+// --- Application State ---
+enum AppState {
+  INITIALIZING,
+  SELECTION,
+  CHATTING,
+}
+
 const state = {
     users: new Map<string, User>(),
     servers: new Map<string, Server>(),
@@ -68,18 +73,24 @@ const state = {
     token: '' as string | null,
     self: null as User | null,
     ws: null as WebSocket | null,
-    currentChannelId: null as string | null,
+    currentChannel: null as Channel | null,
+    appState: AppState.INITIALIZING,
 };
 
+// --- Main Loops ---
+
 async function messageLoop(channel: Channel) {
+  while (true) {
     const input = await promptMessage(channel.name);
-
-    if (input.toLowerCase() === '/exit') {
-        state.ws?.close();
-        return;
-    }
-
     const command = input.toLowerCase().split(' ')[0];
+
+    if (command === '/exit') {
+        state.ws?.close();
+        return; // Exit the entire app
+    }
+    if (command === '/leave') {
+        return; // Go back to channel selection
+    }
 
     switch (command) {
         case '/whoami':
@@ -112,8 +123,6 @@ async function messageLoop(channel: Channel) {
         case '/friends':
             await handleFriends(state.token!, input.split(' ').slice(1), state.users);
             break;
-        case '/leave':
-            return;
         default:
             if (input.trim()) {
                 await sendMessage(channel._id, state.token!, input);
@@ -123,13 +132,14 @@ async function messageLoop(channel: Channel) {
             }
             break;
     }
-    messageLoop(channel);
+  }
 }
 
-async function channelSelectionLoop() {
+async function selectServerAndChannel(): Promise<Channel | null> {
     const config = readConfig();
     const serverId = await selectServer(Array.from(state.servers.values()), config);
     
+    console.log(chalk.gray('Fetching server members...'));
     const { users: memberData } = await fetchServerMembers(serverId, state.token!);
     memberData.forEach(member => state.users.set(member._id, member));
 
@@ -137,32 +147,27 @@ async function channelSelectionLoop() {
     const channelId = await selectChannel(serverChannels, config);
 
     if (channelId === BACK_CHOICE.value) {
-        channelSelectionLoop(); // Go back to server selection
-        return;
+        return null; // User wants to go back
     }
 
     const selectedChannel = state.channels.get(channelId)!;
     config.lastServerId = serverId;
     config.lastChannelId = channelId;
-    state.currentChannelId = channelId;
     writeConfig(config);
 
-    console.log(chalk.green(`Joining channel: #${selectedChannel.name}`));
-    const pastMessages = await fetchPastMessages(channelId, state.token!);
-    await displayPastMessages(pastMessages, state.users);
-
-    await messageLoop(selectedChannel);
-    channelSelectionLoop(); // Loop back to server selection after leaving a channel
+    return selectedChannel;
 }
+
+// --- Application Entry Point ---
 
 async function main() {
   console.log(chalk.blue('Revolt.chat CLI Client'));
   console.log(chalk.blue('======================'));
   console.log(chalk.gray('Type /help for a list of commands.'));
 
+  // --- Login ---
   let config = readConfig();
   state.token = config.token || null;
-
   if (!state.token) {
     const answers = await inquirer.prompt([
       { type: 'input', name: 'email', message: 'Email:' },
@@ -181,8 +186,8 @@ async function main() {
     console.log(chalk.green('Using saved token.'));
   }
 
+  // --- WebSocket Connection ---
   state.ws = connectWebSocket(state.token!);
-
   state.ws.on('message', async (data) => {
     const message = JSON.parse(data.toString());
 
@@ -194,44 +199,71 @@ async function main() {
         break;
 
       case 'Ready':
-        console.log(chalk.cyan('Ready to chat!'));
         const readyPayload = message as ReadyPayload;
         readyPayload.users.forEach(user => state.users.set(user._id, user));
         readyPayload.servers.forEach(server => state.servers.set(server._id, server));
         readyPayload.channels.forEach(channel => state.channels.set(channel._id, channel));
-        
-        channelSelectionLoop();
+        console.log(chalk.cyan('Ready to chat!'));
+        state.appState = AppState.SELECTION; // Move to selection state
         break;
 
       case 'Message': {
-        const msgPayload = message as MessagePayload;
-        if (msgPayload.channel === state.currentChannelId && msgPayload.author !== state.self?._id) {
-            const author = state.users.get(msgPayload.author);
+        if (state.currentChannel && message.channel === state.currentChannel._id && message.author !== state.self?._id) {
+            const author = state.users.get(message.author);
             const authorName = author ? author.username : 'Unknown User';
-            const messageId = chalk.gray(`[${msgPayload._id.slice(-6)}]`);
-            const formattedContent = await formatMessage(msgPayload.content);
+            const messageId = chalk.gray(`[${message._id.slice(-6)}]`);
+            const formattedContent = await formatMessage(message.content);
             console.log(`\n${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
         }
         break;
       }
 
       case 'MessageUpdate': {
-        const updatePayload = message as any;
-        const updatedContent = await formatMessage(updatePayload.data.content);
-        console.log(chalk.italic.yellow(`\n[Message ${updatePayload.id.slice(-6)} updated] ${updatedContent}`));
+        if (state.currentChannel && message.channel === state.currentChannel._id) {
+            const updatedContent = await formatMessage(message.data.content);
+            console.log(chalk.italic.yellow(`\n[Message ${message.id.slice(-6)} updated] ${updatedContent}`));
+        }
         break;
       }
 
       case 'MessageDelete': {
-        const deletePayload = message as any;
-        console.log(chalk.italic.red(`\n[Message ${deletePayload.id.slice(-6)} deleted]`));
+        if (state.currentChannel && message.channel === state.currentChannel._id) {
+            console.log(chalk.italic.red(`\n[Message ${message.id.slice(-6)} deleted]`));
+        }
         break;
       }
     }
   });
+
+  // --- Main Application Loop ---
+  while (true) {
+    switch (state.appState) {
+      case AppState.INITIALIZING:
+        await new Promise(resolve => setTimeout(resolve, 200)); // Wait for WS to be ready
+        break;
+
+      case AppState.SELECTION:
+        state.currentChannel = null; // Clear current channel
+        const selectedChannel = await selectServerAndChannel();
+        if (selectedChannel) {
+          state.currentChannel = selectedChannel;
+          state.appState = AppState.CHATTING;
+        }
+        break;
+
+      case AppState.CHATTING:
+        console.log(chalk.green(`Joining channel: #${state.currentChannel!.name}`));
+        const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!);
+        await displayPastMessages(pastMessages, state.users);
+        await messageLoop(state.currentChannel!);
+        state.appState = AppState.SELECTION; // Go back to selection after leaving
+        break;
+    }
+  }
 }
 
 main().catch(error => {
-  console.error(chalk.red('An unexpected error occurred:', error.message));
+  // The global uncaughtException handler will take care of logging.
+  console.error(chalk.red('An unexpected error occurred in main loop:', error.message));
   process.exit(1);
 });
