@@ -1,4 +1,3 @@
-
 import inquirer, { Separator } from 'inquirer';
 import chalk from 'chalk';
 import { Server, Channel, User } from './types';
@@ -6,8 +5,10 @@ import { Config } from './config';
 import { marked } from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import inquirerFilePath from 'inquirer-file-path';
+import inquirerCommandPrompt from 'inquirer-command-prompt';
 
 inquirer.registerPrompt('file-path', inquirerFilePath);
+inquirer.registerPrompt('command', inquirerCommandPrompt);
 
 marked.setOptions({
   renderer: new TerminalRenderer(),
@@ -15,7 +16,7 @@ marked.setOptions({
 
 export async function formatMessage(content: string): Promise<string> {
   if (typeof content !== 'string') {
-    return ''; // or handle as you see fit
+    return '';
   }
   const blockquoteFormatted = content.replace(/^> (.*)$/gm, chalk.italic.gray('“$1”'));
   const formatted = await marked(blockquoteFormatted);
@@ -58,33 +59,16 @@ export async function selectChannel(channels: Channel[], config: Config): Promis
     return selectedChannelId;
 }
 
-export async function promptMultiLineMessage(channelName: string): Promise<string> {
-  console.log(chalk.italic.gray('Enter message. Press Enter on an empty line to send. Type /exit to quit.'));
-  let lines: string[] = [];
-  while (true) {
-    const { line } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'line',
-        message: chalk.yellow(`[${channelName}]> `),
-      },
+export async function promptMessage(channelName: string): Promise<string> {
+    const { command } = await inquirer.prompt([
+        {
+            type: 'command',
+            name: 'command',
+            message: chalk.yellow(`[${channelName}]> `),
+            autoCompletion: [], // You can add auto-completion for commands here
+        },
     ]);
-
-    if (line.trim().toLowerCase() === '/exit') {
-        return '/exit';
-    }
-
-    if (line.trim() === '') {
-      break;
-    }
-
-    if (line.trim().startsWith('/')) {
-      return line.trim();
-    }
-
-    lines.push(line);
-  }
-  return lines.join('\n');
+    return command;
 }
 
 export async function promptFilePath(): Promise<string> {
@@ -93,7 +77,7 @@ export async function promptFilePath(): Promise<string> {
             type: 'file-path',
             name: 'filePath',
             message: 'Select a file to upload:',
-            basePath: process.cwd(), // Start in the current directory
+            basePath: process.cwd(),
         },
     ]);
     return filePath;

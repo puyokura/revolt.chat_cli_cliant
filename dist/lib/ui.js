@@ -63,6 +63,9 @@ marked_1.marked.setOptions({
 });
 function formatMessage(content) {
     return __awaiter(this, void 0, void 0, function* () {
+        if (typeof content !== 'string') {
+            return ''; // or handle as you see fit
+        }
         const blockquoteFormatted = content.replace(/^> (.*)$/gm, chalk_1.default.italic.gray('“$1”'));
         const formatted = yield (0, marked_1.marked)(blockquoteFormatted);
         return formatted.trim();

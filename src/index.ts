@@ -3,6 +3,8 @@
 import fs from 'fs';
 import path from 'path';
 
+import { name as appName } from '../package.json';
+
 // --- Crash Reporter ---
 process.on('uncaughtException', (error, origin) => {
   const logMessage = `
@@ -11,7 +13,7 @@ Timestamp: ${new Date().toISOString()}
 Origin: ${origin}
 Error: ${error.stack || error}
 `;
-  fs.writeFileSync('crash-log.txt', logMessage, { encoding: 'utf-8' });
+  fs.writeFileSync(`${appName}-crash-log.txt`, logMessage, { encoding: 'utf-8' });
   console.error('A critical error occurred. A crash log has been created.');
   process.exit(1);
 });
@@ -67,10 +69,11 @@ const state = {
     token: '' as string | null,
     self: null as User | null,
     ws: null as WebSocket | null,
+    currentChannelId: null as string | null,
 };
 
 async function messageLoop(channel: Channel) {
-    const input = await promptMultiLineMessage(channel.name);
+    const input = await promptMessage(channel.name);
 
     if (input.toLowerCase() === '/exit') {
         state.ws?.close();
@@ -110,6 +113,8 @@ async function messageLoop(channel: Channel) {
         case '/friends':
             await handleFriends(state.token!, input.split(' ').slice(1), state.users);
             break;
+        case '/leave':
+            return;
         default:
             if (input.trim()) {
                 await sendMessage(channel._id, state.token!, input);
@@ -140,13 +145,15 @@ async function channelSelectionLoop() {
     const selectedChannel = state.channels.get(channelId)!;
     config.lastServerId = serverId;
     config.lastChannelId = channelId;
+    state.currentChannelId = channelId;
     writeConfig(config);
 
     console.log(chalk.green(`Joining channel: #${selectedChannel.name}`));
     const pastMessages = await fetchPastMessages(channelId, state.token!);
     await displayPastMessages(pastMessages, state.users);
 
-    messageLoop(selectedChannel);
+    await messageLoop(selectedChannel);
+    channelSelectionLoop(); // Loop back to server selection after leaving a channel
 }
 
 async function main() {
@@ -199,7 +206,7 @@ async function main() {
 
       case 'Message': {
         const msgPayload = message as MessagePayload;
-        if (msgPayload.author !== state.self?._id) {
+        if (msgPayload.channel === state.currentChannelId && msgPayload.author !== state.self?._id) {
             const author = state.users.get(msgPayload.author);
             const authorName = author ? author.username : 'Unknown User';
             const messageId = chalk.gray(`[${msgPayload._id.slice(-6)}]`);

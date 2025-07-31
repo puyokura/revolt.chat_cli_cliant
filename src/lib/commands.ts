@@ -96,6 +96,7 @@ export function handleHelp() {
   console.log(`${chalk.cyan('/whoami')}   - Displays your user information.`);
   console.log(`${chalk.cyan('/users')}     - Lists users in the current channel.`);
   console.log(`${chalk.cyan('/upload')}    - Uploads a file to the channel.`);
+  console.log(`${chalk.cyan('/leave')}      - Leaves the current channel.`);
   console.log(`${chalk.cyan('/exit')}      - Exits the application.`);
   console.log(chalk.bold.magenta('------------------------'));
 }
@@ -195,9 +196,13 @@ export async function handleFriends(token: string, args: string[], users: Map<st
     case 'list':
       const friends = await fetchFriends(token);
       console.log(chalk.bold.magenta('--- Friends ---'));
-      friends.forEach(friend => {
-        console.log(`- ${chalk.cyan(friend.username)}`);
-      });
+      if (friends.length > 0) {
+        friends.forEach(friend => {
+            console.log(`- ${chalk.cyan(friend.username)} (${getPresence(friend)})`);
+        });
+      } else {
+        console.log(chalk.gray('You have no friends yet.'));
+      }
       console.log(chalk.bold.magenta('---------------'));
       break;
 
