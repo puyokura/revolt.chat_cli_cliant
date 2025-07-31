@@ -3,7 +3,8 @@
 import fs from 'fs';
 import path from 'path';
 
-import { name as appName } from '../package.json';
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8'));
+const appName = packageJson.name;
 
 // --- Crash Reporter ---
 process.on('uncaughtException', (error, origin) => {
@@ -13,8 +14,10 @@ Timestamp: ${new Date().toISOString()}
 Origin: ${origin}
 Error: ${error.stack || error}
 `;
-  fs.writeFileSync(`${appName}-crash-log.txt`, logMessage, { encoding: 'utf-8' });
-  console.error('A critical error occurred. A crash log has been created.');
+  // Use a unique filename for each crash log
+  const logFileName = `${appName}-crash-${Date.now()}.txt`;
+  fs.writeFileSync(logFileName, logMessage, { encoding: 'utf-8' });
+  console.error(`A critical error occurred. A crash log has been saved to ${logFileName}`);
   process.exit(1);
 });
 // ----------------------
