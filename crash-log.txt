@@ -1,0 +1,15 @@
+
+--- UNCAUGHT EXCEPTION ---
+Timestamp: 2025-07-31T11:38:28.731Z
+Origin: unhandledRejection
+Error: TypeError: Cannot read properties of undefined (reading 'replace')
+    at C:\snapshot\revolt.chat_cli_cliant\dist\lib\ui.js:66:45
+    at Generator.next (<anonymous>)
+    at C:\snapshot\revolt.chat_cli_cliant\dist\lib\ui.js:41:71
+    at new Promise (<anonymous>)
+    at C:\snapshot\revolt.chat_cli_cliant\dist\lib\ui.js:37:12
+    at formatMessage (C:\snapshot\revolt.chat_cli_cliant\dist\lib\ui.js:65:12)
+    at C:\snapshot\revolt.chat_cli_cliant\dist\index.js:167:79
+    at Generator.next (<anonymous>)
+    at C:\snapshot\revolt.chat_cli_cliant\dist\index.js:8:71
+    at new Promise (<anonymous>)

@@ -14,6 +14,9 @@ marked.setOptions({
 });
 
 export async function formatMessage(content: string): Promise<string> {
+  if (typeof content !== 'string') {
+    return ''; // or handle as you see fit
+  }
   const blockquoteFormatted = content.replace(/^> (.*)$/gm, chalk.italic.gray('“$1”'));
   const formatted = await marked(blockquoteFormatted);
   return formatted.trim();
