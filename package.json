@@ -1,6 +1,6 @@
 {
   "name": "revolt.chat_cli_cliant",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "revolt.chat_cli_cliant",
   "bin": "dist/index.js",
   "main": "dist/index.js",
