@@ -49,7 +49,7 @@ exports.BACK_CHOICE = void 0;
 exports.formatMessage = formatMessage;
 exports.selectServer = selectServer;
 exports.selectChannel = selectChannel;
-exports.promptMultiLineMessage = promptMultiLineMessage;
+exports.promptMessage = promptMessage;
 exports.promptFilePath = promptFilePath;
 exports.displayPastMessages = displayPastMessages;
 const inquirer_1 = __importStar(require("inquirer"));
@@ -57,14 +57,16 @@ const chalk_1 = __importDefault(require("chalk"));
 const marked_1 = require("marked");
 const marked_terminal_1 = __importDefault(require("marked-terminal"));
 const inquirer_file_path_1 = __importDefault(require("inquirer-file-path"));
+const inquirer_command_prompt_1 = __importDefault(require("inquirer-command-prompt"));
 inquirer_1.default.registerPrompt('file-path', inquirer_file_path_1.default);
+inquirer_1.default.registerPrompt('command', inquirer_command_prompt_1.default);
 marked_1.marked.setOptions({
     renderer: new marked_terminal_1.default(),
 });
 function formatMessage(content) {
     return __awaiter(this, void 0, void 0, function* () {
         if (typeof content !== 'string') {
-            return ''; // or handle as you see fit
+            return '';
         }
         const blockquoteFormatted = content.replace(/^> (.*)$/gm, chalk_1.default.italic.gray('“$1”'));
         const formatted = yield (0, marked_1.marked)(blockquoteFormatted);
@@ -106,30 +108,17 @@ function selectChannel(channels, config) {
         return selectedChannelId;
     });
 }
-function promptMultiLineMessage(channelName) {
+function promptMessage(channelName) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log(chalk_1.default.italic.gray('Enter message. Press Enter on an empty line to send. Type /exit to quit.'));
-        let lines = [];
-        while (true) {
-            const { line } = yield inquirer_1.default.prompt([
-                {
-                    type: 'input',
-                    name: 'line',
-                    message: chalk_1.default.yellow(`[${channelName}]> `),
-                },
-            ]);
-            if (line.trim().toLowerCase() === '/exit') {
-                return '/exit';
-            }
-            if (line.trim() === '') {
-                break;
-            }
-            if (line.trim().startsWith('/')) {
-                return line.trim();
-            }
-            lines.push(line);
-        }
-        return lines.join('\n');
+        const { command } = yield inquirer_1.default.prompt([
+            {
+                type: 'command',
+                name: 'command',
+                message: chalk_1.default.yellow(`[${channelName}]> `),
+                autoCompletion: [], // You can add auto-completion for commands here
+            },
+        ]);
+        return command;
     });
 }
 function promptFilePath() {
@@ -139,7 +128,7 @@ function promptFilePath() {
                 type: 'file-path',
                 name: 'filePath',
                 message: 'Select a file to upload:',
-                basePath: process.cwd(), // Start in the current directory
+                basePath: process.cwd(),
             },
         ]);
         return filePath;

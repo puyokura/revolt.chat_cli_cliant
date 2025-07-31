@@ -105,6 +105,7 @@ function handleHelp() {
     console.log(`${chalk_1.default.cyan('/whoami')}   - Displays your user information.`);
     console.log(`${chalk_1.default.cyan('/users')}     - Lists users in the current channel.`);
     console.log(`${chalk_1.default.cyan('/upload')}    - Uploads a file to the channel.`);
+    console.log(`${chalk_1.default.cyan('/leave')}      - Leaves the current channel.`);
     console.log(`${chalk_1.default.cyan('/exit')}      - Exits the application.`);
     console.log(chalk_1.default.bold.magenta('------------------------'));
 }
@@ -201,9 +202,14 @@ function handleFriends(token, args, users) {
             case 'list':
                 const friends = yield (0, api_1.fetchFriends)(token);
                 console.log(chalk_1.default.bold.magenta('--- Friends ---'));
-                friends.forEach(friend => {
-                    console.log(`- ${chalk_1.default.cyan(friend.username)}`);
-                });
+                if (friends.length > 0) {
+                    friends.forEach(friend => {
+                        console.log(`- ${chalk_1.default.cyan(friend.username)} (${getPresence(friend)})`);
+                    });
+                }
+                else {
+                    console.log(chalk_1.default.gray('You have no friends yet.'));
+                }
                 console.log(chalk_1.default.bold.magenta('---------------'));
                 break;
             case 'add':

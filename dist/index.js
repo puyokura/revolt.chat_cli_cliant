@@ -13,6 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = __importDefault(require("fs"));
+const package_json_1 = require("../package.json");
 // --- Crash Reporter ---
 process.on('uncaughtException', (error, origin) => {
     const logMessage = `
@@ -21,7 +22,7 @@ Timestamp: ${new Date().toISOString()}
 Origin: ${origin}
 Error: ${error.stack || error}
 `;
-    fs_1.default.writeFileSync('crash-log.txt', logMessage, { encoding: 'utf-8' });
+    fs_1.default.writeFileSync(`${package_json_1.name}-crash-log.txt`, logMessage, { encoding: 'utf-8' });
     console.error('A critical error occurred. A crash log has been created.');
     process.exit(1);
 });
@@ -39,11 +40,12 @@ const state = {
     token: '',
     self: null,
     ws: null,
+    currentChannelId: null,
 };
 function messageLoop(channel) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
-        const input = yield (0, ui_1.promptMultiLineMessage)(channel.name);
+        const input = yield promptMessage(channel.name);
         if (input.toLowerCase() === '/exit') {
             (_a = state.ws) === null || _a === void 0 ? void 0 : _a.close();
             return;
@@ -80,6 +82,8 @@ function messageLoop(channel) {
             case '/friends':
                 yield (0, commands_1.handleFriends)(state.token, input.split(' ').slice(1), state.users);
                 break;
+            case '/leave':
+                return;
             default:
                 if (input.trim()) {
                     yield (0, api_1.sendMessage)(channel._id, state.token, input);
@@ -107,11 +111,13 @@ function channelSelectionLoop() {
         const selectedChannel = state.channels.get(channelId);
         config.lastServerId = serverId;
         config.lastChannelId = channelId;
+        state.currentChannelId = channelId;
         (0, config_1.writeConfig)(config);
         console.log(chalk_1.default.green(`Joining channel: #${selectedChannel.name}`));
         const pastMessages = yield (0, api_1.fetchPastMessages)(channelId, state.token);
         yield (0, ui_1.displayPastMessages)(pastMessages, state.users);
-        messageLoop(selectedChannel);
+        yield messageLoop(selectedChannel);
+        channelSelectionLoop(); // Loop back to server selection after leaving a channel
     });
 }
 function main() {
@@ -160,7 +166,7 @@ function main() {
                     break;
                 case 'Message': {
                     const msgPayload = message;
-                    if (msgPayload.author !== ((_a = state.self) === null || _a === void 0 ? void 0 : _a._id)) {
+                    if (msgPayload.channel === state.currentChannelId && msgPayload.author !== ((_a = state.self) === null || _a === void 0 ? void 0 : _a._id)) {
                         const author = state.users.get(msgPayload.author);
                         const authorName = author ? author.username : 'Unknown User';
                         const messageId = chalk_1.default.gray(`[${msgPayload._id.slice(-6)}]`);

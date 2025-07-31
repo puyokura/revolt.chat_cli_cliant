@@ -44,7 +44,7 @@ import {
 import {
   selectServer,
   selectChannel,
-  promptMultiLineMessage,
+  promptMessage,
   displayPastMessages,
   formatMessage,
   BACK_CHOICE
