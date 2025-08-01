@@ -195,52 +195,40 @@ export async function deleteMessage(channelId: string, messageId: string, token:
   }
 }
 
-import https from 'https';
+
 
 /**
  * ファイルをAutumnにアップロードし、添付ファイルIDを取得します。
  */
 export async function uploadFile(filePath: string, token: string): Promise<string | null> {
-    return new Promise((resolve, reject) => {
+    try {
         if (!fs.existsSync(filePath)) {
             console.error(chalk.red('File not found at the specified path.'));
-            return resolve(null);
+            return null;
         }
 
         const form = new FormData();
         form.append('file', fs.createReadStream(filePath));
 
-        const req = https.request(
-            {
-                hostname: new URL(autumnUrl).hostname,
-                path: '/attachments',
-                method: 'POST',
-                headers: {
-                    ...form.getHeaders(),
-                    'x-session-token': token,
-                },
+        const response = await axios.post(`${autumnUrl}/attachments`, form, {
+            headers: {
+                ...form.getHeaders(),
+                'x-session-token': token,
             },
-            (res) => {
-                let body = '';
-                res.on('data', (chunk) => (body += chunk));
-                res.on('end', () => {
-                    if (res.statusCode === 200) {
-                        resolve(JSON.parse(body).id);
-                    } else {
-                        console.error(chalk.red(`File upload failed with status ${res.statusCode}:`), body);
-                        resolve(null);
-                    }
-                });
-            }
-        );
-
-        req.on('error', (e) => {
-            console.error(chalk.red('File upload failed:', e.message));
-            resolve(null);
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
         });
 
-        form.pipe(req);
-    });
+        if (response.status === 200) {
+            return response.data.id;
+        } else {
+            console.error(chalk.red(`File upload failed with status ${response.status}:`), response.data);
+            return null;
+        }
+    } catch (error) {
+        console.error(chalk.red('File upload failed:'), error);
+        return null;
+    }
 }
 
 /**
