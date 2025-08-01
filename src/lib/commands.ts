@@ -11,6 +11,7 @@ import {
   fetchServerMembers,
 } from './api';
 import { promptFilePath } from './ui';
+import { clearConfig } from './config';
 
 function getPresence(user: User) {
     if (user.bot) return chalk.blue('[BOT]');
@@ -101,9 +102,15 @@ export function handleHelp() {
   console.log(`${chalk.cyan('/reply <id> <msg>')} - Replies to a message.`);
   console.log(`${chalk.cyan('/edit <id> <msg>')}  - Edits your message.`);
   console.log(`${chalk.cyan('/delete <id>')} - Deletes your message.`);
+  console.log(`${chalk.cyan('/logout')}    - Deletes session token and exits.`);
   console.log(`${chalk.cyan('/leave')}      - Leaves the current channel.`);
   console.log(`${chalk.cyan('/exit')}      - Exits the application.`);
   console.log(chalk.bold.magenta('------------------------'));
+}
+
+export function handleLogout() {
+    clearConfig();
+    console.log(chalk.green('Logged out. Session token has been cleared.'));
 }
 
 export async function handleNick(serverId: string, userId: string, token: string, args: string[]) {

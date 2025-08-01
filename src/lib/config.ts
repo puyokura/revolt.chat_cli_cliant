@@ -25,3 +25,9 @@ export function readConfig(): Config {
 export function writeConfig(config: Config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
+
+export function clearConfig() {
+    if (fs.existsSync(CONFIG_PATH)) {
+        fs.unlinkSync(CONFIG_PATH);
+    }
+}

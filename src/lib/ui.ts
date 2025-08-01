@@ -1,13 +1,13 @@
-import inquirer, { Separator } from 'inquirer';
+import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { Server, Channel, User } from './types';
 import { Config } from './config';
 import { marked } from 'marked';
 import TerminalRenderer from 'marked-terminal';
-import inquirerFilePath from 'inquirer-file-path';
+import inquirerFileTreeSelection from 'inquirer-file-tree-selection-prompt';
 import inquirerCommandPrompt from 'inquirer-command-prompt';
 
-inquirer.registerPrompt('file-path', inquirerFilePath);
+inquirer.registerPrompt('file-tree-selection', inquirerFileTreeSelection);
 inquirer.registerPrompt('command', inquirerCommandPrompt);
 
 marked.setOptions({
@@ -27,34 +27,30 @@ export const BACK_CHOICE = { name: '.. Go Back', value: '__BACK__' };
 
 export async function selectServer(servers: Server[], config: Config): Promise<string> {
     const serverChoices = servers.map(server => ({ name: server.name, value: server._id }));
-    const { selectedServerId } = await inquirer.prompt([
-        {
-            type: 'list',
-            name: 'selectedServerId',
-            message: 'Select a server:',
-            choices: serverChoices,
-            default: config.lastServerId,
-        },
-    ]);
+    const { selectedServerId } = await inquirer.prompt({
+        type: 'list',
+        name: 'selectedServerId',
+        message: 'Select a server:',
+        choices: serverChoices,
+        default: config.lastServerId,
+    });
     return selectedServerId;
 }
 
 export async function selectChannel(channels: Channel[], config: Config): Promise<string> {
     const channelChoices = [
         ...channels.map(channel => ({ name: `#${channel.name}`, value: channel._id })),
-        new Separator(),
+        new inquirer.Separator(),
         BACK_CHOICE,
     ];
 
-    const { selectedChannelId } = await inquirer.prompt([
-        {
-            type: 'list',
-            name: 'selectedChannelId',
-            message: 'Select a channel:',
-            choices: channelChoices,
-            default: config.lastChannelId,
-        },
-    ]);
+    const { selectedChannelId } = await inquirer.prompt({
+        type: 'list',
+        name: 'selectedChannelId',
+        message: 'Select a channel:',
+        choices: channelChoices,
+        default: config.lastChannelId,
+    });
 
     return selectedChannelId;
 }
@@ -70,31 +66,28 @@ const COMMANDS = [
     '/reply',
     '/edit',
     '/delete',
+    '/logout',
     '/leave',
     '/exit',
 ];
 
 export async function promptMessage(channelName: string): Promise<string> {
-    const { command } = await inquirer.prompt([
-        {
-            type: 'command',
-            name: 'command',
-            message: chalk.yellow(`[${channelName}]> `),
-            autoCompletion: COMMANDS,
-        },
-    ]);
+    const { command } = await inquirer.prompt({
+        type: 'command',
+        name: 'command',
+        message: chalk.yellow(`[${channelName}]> `),
+        autoCompletion: COMMANDS,
+    });
     return command;
 }
 
 export async function promptFilePath(): Promise<string> {
-    const { filePath } = await inquirer.prompt([
-        {
-            type: 'file-path',
-            name: 'filePath',
-            message: 'Select a file to upload:',
-            basePath: process.cwd(),
-        },
-    ]);
+    const { filePath } = await inquirer.prompt({
+        type: 'file-tree-selection',
+        name: 'filePath',
+        message: 'Select a file to upload',
+        root: process.cwd(),
+    });
     return filePath;
 }
 

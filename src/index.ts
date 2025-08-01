@@ -60,6 +60,7 @@ import {
   handleDelete,
   handleProfile,
   handleStatus,
+  handleLogout,
 } from './lib/commands';
 
 // --- Application State ---
@@ -128,6 +129,10 @@ async function messageLoop(channel: Channel) {
         case '/status':
             await handleStatus(state.token!, args);
             break;
+        case '/logout':
+            handleLogout();
+            state.ws?.close();
+            return;
         default:
             if (input.trim()) {
                 const sentMessage = await sendMessage(channel._id, state.token!, input);
