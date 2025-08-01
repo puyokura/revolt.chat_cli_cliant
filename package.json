@@ -1,6 +1,6 @@
 {
   "name": "revolt.chat_cli_cliant",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "revolt.chat_cli_cliant",
   "bin": "dist/index.js",
   "main": "dist/index.js",
@@ -13,14 +13,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "pkg": {
-    "scripts": "dist/**/*.js",
-    "assets": [
-      "node_modules/**/*",
-      "package.json"
-    ],
-    "icon": "revolt_icon150x150.png"
-  },
   "pkg": {
     "scripts": "dist/**/*.js",
     "assets": [
