@@ -7,7 +7,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "tsc -p .",
-    "package": "npm run build && pkg . --targets node18-win-x64 --output revolt-cli-v${npm_package_version}.exe",
+    "package": "npm run build && pkg . --targets node18-win-x64 --output revolt-cli-v${npm_package_version}.exe && npx rcedit revolt-cli-v${npm_package_version}.exe --set-icon icon.ico",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
