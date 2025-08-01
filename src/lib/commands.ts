@@ -1,5 +1,4 @@
 
-
 import chalk from 'chalk';
 import { User, Channel } from './types';
 import {
@@ -9,9 +8,8 @@ import {
   deleteMessage,
   fetchUserProfile,
   updateUserStatus,
-  fetchFriends,
-  addFriend,
-  removeFriend
+  updateNickname,
+  fetchServerMembers,
 } from './api';
 import { promptFilePath } from './ui';
 
@@ -21,7 +19,7 @@ function getPresence(user: User) {
     return chalk.gray('Offline');
 }
 
-export function handleWhoami(self: User | null, users: Map<string, User>) {
+export function handleWhoami(self: User | null) {
   if (self) {
     console.log(chalk.bold.magenta('--- Your User Info ---'));
     console.log(`Username: ${chalk.cyan(self.username)}`);
@@ -36,48 +34,51 @@ export function handleWhoami(self: User | null, users: Map<string, User>) {
   }
 }
 
-export function handleUsers(channelId: string, channels: Map<string, Channel>, users: Map<string, User>) {
-  const currentChannel = channels.get(channelId);
-  if (currentChannel?.recipients) {
-    console.log(chalk.bold.magenta(`--- Users in #${currentChannel.name} ---`));
-    
-    const onlineUsers = currentChannel.recipients.map(id => users.get(id)).filter(u => u && u.online && !u.bot);
-    const offlineUsers = currentChannel.recipients.map(id => users.get(id)).filter(u => u && !u.online && !u.bot);
-    const bots = currentChannel.recipients.map(id => users.get(id)).filter(u => u && u.bot);
-
-    if (onlineUsers.length > 0) {
-        console.log(chalk.green('\n--- Online ---'));
-        onlineUsers.forEach(user => {
-            console.log(`- ${chalk.cyan(user!.username)}`);
-            if (user!.status?.text) {
-                console.log(`    └ ${chalk.italic(user!.status.text)}`);
-            }
-        });
-    }
-
-    if (offlineUsers.length > 0) {
-        console.log(chalk.gray('\n--- Offline ---'));
-        offlineUsers.forEach(user => {
-            console.log(`- ${chalk.cyan(user!.username)}`);
-        });
-    }
-
-    if (bots.length > 0) {
-        console.log(chalk.blue('\n--- Bots ---'));
-        bots.forEach(bot => {
-            console.log(`- ${chalk.cyan(bot!.username)}`);
-        });
-    }
-
-    console.log(chalk.bold.magenta('\n-----------------------------------'));
-  } else {
-    console.log(chalk.yellow('Could not retrieve user list for this channel.'));
+export async function handleUsers(channel: Channel, token: string, users: Map<string, User>) {
+  if (!channel.server) {
+      console.log(chalk.yellow('This command is only available in server channels.'));
+      return;
   }
+
+  const { users: memberData } = await fetchServerMembers(channel.server, token);
+  const members = memberData.map(m => users.get(m._id)).filter(Boolean) as User[];
+
+  console.log(chalk.bold.magenta(`--- Users in #${channel.name} ---`));
+  
+  const onlineUsers = members.filter(u => u.online && !u.bot);
+  const offlineUsers = members.filter(u => !u.online && !u.bot);
+  const bots = members.filter(u => u.bot);
+
+  if (onlineUsers.length > 0) {
+      console.log(chalk.green('\n--- Online ---'));
+      onlineUsers.forEach(user => {
+          console.log(`- ${chalk.cyan(user.username)}`);
+          if (user.status?.text) {
+              console.log(`    └ ${chalk.italic(user.status.text)}`);
+          }
+      });
+  }
+
+  if (offlineUsers.length > 0) {
+      console.log(chalk.gray('\n--- Offline ---'));
+      offlineUsers.forEach(user => {
+          console.log(`- ${chalk.cyan(user.username)}`);
+      });
+  }
+
+  if (bots.length > 0) {
+      console.log(chalk.blue('\n--- Bots ---'));
+      bots.forEach(bot => {
+          console.log(`- ${chalk.cyan(bot.username)}`);
+      });
+  }
+
+  console.log(chalk.bold.magenta('\n-----------------------------------'));
 }
 
 export async function handleUpload(channelId: string, token: string) {
   const filePath = await promptFilePath();
-  const attachmentId = await uploadFile(filePath);
+  const attachmentId = await uploadFile(filePath, token);
   if (attachmentId) {
     await sendMessage(channelId, token, '', [attachmentId]);
     console.log(chalk.green('File uploaded successfully!'));
@@ -87,18 +88,28 @@ export async function handleUpload(channelId: string, token: string) {
 export function handleHelp() {
   console.log(chalk.bold.magenta('--- Available Commands ---'));
   console.log(`${chalk.cyan('/help')}      - Shows this help message.`);
+  console.log(`${chalk.cyan('/users')}     - Lists users in the current channel.`);
+  console.log(`${chalk.cyan('/whoami')}   - Displays your user information.`);
+  console.log(`${chalk.cyan('/nick <name>')} - Sets your server nickname.`);
+  console.log(`${chalk.cyan('/profile <user>')} - Shows user profile.`);
+  console.log(`${chalk.cyan('/status <pres> [msg]')} - Sets your status (online, idle, busy, invisible).`);
+  console.log(`${chalk.cyan('/upload')}    - Uploads a file to the channel.`);
   console.log(`${chalk.cyan('/reply <id> <msg>')} - Replies to a message.`);
   console.log(`${chalk.cyan('/edit <id> <msg>')}  - Edits your message.`);
   console.log(`${chalk.cyan('/delete <id>')} - Deletes your message.`);
-  console.log(`${chalk.cyan('/profile <user>')} - Shows user profile.`);
-  console.log(`${chalk.cyan('/status <pres> [msg]')} - Sets your status (online, idle, busy, invisible).`);
-  console.log(`${chalk.cyan('/friends <cmd> [user]')} - Manages friends (list, add, remove).`);
-  console.log(`${chalk.cyan('/whoami')}   - Displays your user information.`);
-  console.log(`${chalk.cyan('/users')}     - Lists users in the current channel.`);
-  console.log(`${chalk.cyan('/upload')}    - Uploads a file to the channel.`);
   console.log(`${chalk.cyan('/leave')}      - Leaves the current channel.`);
   console.log(`${chalk.cyan('/exit')}      - Exits the application.`);
   console.log(chalk.bold.magenta('------------------------'));
+}
+
+export async function handleNick(serverId: string, userId: string, token: string, args: string[]) {
+    const nickname = args.join(' ');
+    if (!nickname) {
+        console.log(chalk.red('Usage: /nick <new_nickname>'));
+        return;
+    }
+    await updateNickname(serverId, userId, token, nickname);
+    console.log(chalk.green(`Nickname updated to "${nickname}".`));
 }
 
 export async function handleReply(channelId: string, token: string, args: string[]) {
@@ -153,10 +164,16 @@ export async function handleProfile(token: string, username: string, users: Map<
   if (profile) {
     console.log(chalk.bold.magenta(`--- Profile: ${profile.username} ---`));
     console.log(`ID: ${chalk.gray(profile._id)}`);
-    console.log(`Status: ${chalk.cyan(profile.status?.text || 'Not set')}`);
-    if (profile.profile?.content) {
+    if (profile.nickname) {
+        console.log(`Nickname: ${chalk.cyan(profile.nickname)}`);
+    }
+    console.log(`Status: ${getPresence(profile)}`);
+    if (profile.status?.text) {
+        console.log(`  └ ${chalk.italic(profile.status.text)}`);
+    }
+    if (profile.content) {
       console.log(chalk.bold.magenta('--- Bio ---'));
-      console.log(profile.profile.content);
+      console.log(profile.content);
       console.log(chalk.bold.magenta('-----------'));
     }
     if (profile.avatar) {
@@ -186,56 +203,4 @@ export async function handleStatus(token: string, args: string[]) {
 
   await updateUserStatus(token, { text, presence });
   console.log(chalk.green(`Status updated to ${presence}${text ? ` with message "${text}"` : ''}.`));
-}
-
-export async function handleFriends(token: string, args: string[], users: Map<string, User>) {
-  const subCommand = args[0]?.toLowerCase();
-  const usernameArg = args[1]?.toLowerCase();
-
-  switch (subCommand) {
-    case 'list':
-      const friends = await fetchFriends(token);
-      console.log(chalk.bold.magenta('--- Friends ---'));
-      if (friends.length > 0) {
-        friends.forEach(friend => {
-            console.log(`- ${chalk.cyan(friend.username)} (${getPresence(friend)})`);
-        });
-      } else {
-        console.log(chalk.gray('You have no friends yet.'));
-      }
-      console.log(chalk.bold.magenta('---------------'));
-      break;
-
-    case 'add':
-        if (!usernameArg) {
-            console.log(chalk.red('Usage: /friends add <username>'));
-            return;
-        }
-      const addUser = Array.from(users.values()).find(u => u.username.toLowerCase() === usernameArg);
-      if (!addUser) {
-        console.log(chalk.red(`User "${usernameArg}" not found.`));
-        return;
-      }
-      await addFriend(addUser._id, token);
-      console.log(chalk.green(`Friend request sent to ${addUser.username}.`));
-      break;
-
-    case 'remove':
-        if (!usernameArg) {
-            console.log(chalk.red('Usage: /friends remove <username>'));
-            return;
-        }
-      const removeUser = Array.from(users.values()).find(u => u.username.toLowerCase() === usernameArg);
-      if (!removeUser) {
-        console.log(chalk.red(`User "${usernameArg}" not found.`));
-        return;
-      }
-      await removeFriend(removeUser._id, token);
-      console.log(chalk.green(`Removed ${removeUser.username} from friends.`));
-      break;
-
-    default:
-      console.log(chalk.red('Usage: /friends <list|add|remove> [username]'));
-      break;
-  }
 }

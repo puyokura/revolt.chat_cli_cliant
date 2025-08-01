@@ -107,7 +107,7 @@ export async function fetchPastMessages(channelId: string, token: string, limit:
 /**
  * チャンネルにメッセージを送信します。
  */
-export async function sendMessage(channelId: string, token: string, content: string, attachments?: string[], replies?: { id: string, mention: boolean }[]): Promise<void> {
+export async function sendMessage(channelId: string, token: string, content: string, attachments?: string[], replies?: { id: string, mention: boolean }[]): Promise<any | null> {
   try {
     const payload: { content: string; attachments?: string[]; replies?: { id: string, mention: boolean }[] } = { content };
     if (attachments && attachments.length > 0) {
@@ -117,10 +117,11 @@ export async function sendMessage(channelId: string, token: string, content: str
       payload.replies = replies;
     }
 
-    await axios.post(`${API_URL}/channels/${channelId}/messages`, 
+    const response = await axios.post(`${API_URL}/channels/${channelId}/messages`, 
       payload, 
       { headers: { 'x-session-token': token } }
     );
+    return response.data;
   } catch (error: any) {
     console.error(chalk.red('--- FAILED TO SEND MESSAGE ---'));
     if (axios.isAxiosError(error)) {
@@ -132,6 +133,7 @@ export async function sendMessage(channelId: string, token: string, content: str
       console.error(chalk.red('Unexpected Error:'), error.message);
     }
     console.error(chalk.red('------------------------------'));
+    return null;
   }
 }
 
@@ -181,7 +183,7 @@ export async function deleteMessage(channelId: string, messageId: string, token:
 /**
  * ファイルをAutumnにアップロードし、添付ファイルIDを取得します。
  */
-export async function uploadFile(filePath: string): Promise<string | null> {
+export async function uploadFile(filePath: string, token: string): Promise<string | null> {
   try {
     if (!fs.existsSync(filePath)) {
       console.error(chalk.red('File not found at the specified path.'));
@@ -193,6 +195,7 @@ export async function uploadFile(filePath: string): Promise<string | null> {
     const uploadResponse = await axios.post(`${AUTUMN_URL}/attachments`, form, {
       headers: {
         ...form.getHeaders(),
+        'x-session-token': token,
       },
     });
     return uploadResponse.data.id;
@@ -237,6 +240,28 @@ export async function updateUserStatus(token: string, status: { text?: string, p
     }
     console.error(chalk.red('-------------------------------'));
   }
+}
+
+/**
+ * サーバーでのニックネームを変更します。
+ */
+export async function updateNickname(serverId: string, userId: string, token: string, nickname: string): Promise<void> {
+    try {
+        await axios.patch(`${API_URL}/servers/${serverId}/members/${userId}`,
+            { nickname },
+            { headers: { 'x-session-token': token } }
+        );
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO UPDATE NICKNAME ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        console.error(chalk.red('---------------------------------'));
+    }
 }
 
 /**

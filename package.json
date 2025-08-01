@@ -18,6 +18,14 @@
     "assets": [
       "node_modules/**/*",
       "package.json"
+    ],
+    "icon": "revolt_icon150x150.png"
+  },
+  "pkg": {
+    "scripts": "dist/**/*.js",
+    "assets": [
+      "node_modules/**/*",
+      "package.json"
     ]
   },
   "dependencies": {

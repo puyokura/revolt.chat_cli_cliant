@@ -59,13 +59,28 @@ export async function selectChannel(channels: Channel[], config: Config): Promis
     return selectedChannelId;
 }
 
+const COMMANDS = [
+    '/help',
+    '/users',
+    '/whoami',
+    '/nick',
+    '/profile',
+    '/status',
+    '/upload',
+    '/reply',
+    '/edit',
+    '/delete',
+    '/leave',
+    '/exit',
+];
+
 export async function promptMessage(channelName: string): Promise<string> {
     const { command } = await inquirer.prompt([
         {
             type: 'command',
             name: 'command',
             message: chalk.yellow(`[${channelName}]> `),
-            autoCompletion: [], // You can add auto-completion for commands here
+            autoCompletion: COMMANDS,
         },
     ]);
     return command;

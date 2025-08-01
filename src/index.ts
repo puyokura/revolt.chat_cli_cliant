@@ -1,3 +1,5 @@
+
+
 import fs from 'fs';
 import path from 'path';
 
@@ -51,12 +53,12 @@ import {
   handleUsers,
   handleUpload,
   handleHelp,
+  handleNick,
   handleReply,
   handleEdit,
   handleDelete,
   handleProfile,
   handleStatus,
-  handleFriends
 } from './lib/commands';
 
 // --- Application State ---
@@ -82,6 +84,7 @@ const state = {
 async function messageLoop(channel: Channel) {
   while (true) {
     const input = await promptMessage(channel.name);
+    const args = input.split(' ').slice(1);
     const command = input.toLowerCase().split(' ')[0];
 
     if (command === '/exit') {
@@ -94,10 +97,10 @@ async function messageLoop(channel: Channel) {
 
     switch (command) {
         case '/whoami':
-            handleWhoami(state.self, state.users);
+            handleWhoami(state.self);
             break;
         case '/users':
-            handleUsers(channel._id, state.channels, state.users);
+            handleUsers(channel, state.token!, state.users);
             break;
         case '/upload':
             await handleUpload(channel._id, state.token!);
@@ -105,30 +108,32 @@ async function messageLoop(channel: Channel) {
         case '/help':
             handleHelp();
             break;
+        case '/nick':
+            await handleNick(channel.server, state.self!._id, state.token!, args);
+            break;
         case '/reply':
-            await handleReply(channel._id, state.token!, input.split(' ').slice(1));
+            await handleReply(channel._id, state.token!, args);
             break;
         case '/edit':
-            await handleEdit(channel._id, state.token!, input.split(' ').slice(1));
+            await handleEdit(channel._id, state.token!, args);
             break;
         case '/delete':
-            await handleDelete(channel._id, state.token!, input.split(' ').slice(1));
+            await handleDelete(channel._id, state.token!, args);
             break;
         case '/profile':
-            await handleProfile(state.token!, input.split(' ')[1], state.users);
+            await handleProfile(state.token!, args[0], state.users);
             break;
         case '/status':
-            await handleStatus(state.token!, input.split(' ').slice(1));
-            break;
-        case '/friends':
-            await handleFriends(state.token!, input.split(' ').slice(1), state.users);
+            await handleStatus(state.token!, args);
             break;
         default:
             if (input.trim()) {
-                await sendMessage(channel._id, state.token!, input);
-                const pendingId = chalk.yellow(`[sending...]`);
-                const formattedInput = await formatMessage(input);
-                console.log(`\n${pendingId} ${chalk.bgGreen.black(` ${state.self?.username} `)} ${formattedInput}`);
+                const sentMessage = await sendMessage(channel._id, state.token!, input);
+                if (sentMessage) {
+                    const messageId = chalk.gray(`[${sentMessage._id.slice(-6)}]`);
+                    const formattedInput = await formatMessage(input);
+                    console.log(`\n${messageId} ${chalk.bgGreen.black(` ${state.self?.username} `)} ${formattedInput}`);
+                }
             }
             break;
     }
