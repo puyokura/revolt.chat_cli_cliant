@@ -17,6 +17,7 @@
     -   `/nick <name>`: サーバーでのニックネームを設定します。
     -   `/profile <user>`: ユーザーのプロフィールを表示します。
     -   `/status <pres> [msg]`: ステータス（online, idle, busy, invisible）とメッセージを設定します。
+    -   `/upload`: ローカルマシンからファイルをアップロードします。
     -   `/reply <id> <msg>`: 特定のメッセージに返信します。
     -   `/edit <id> <msg>`: 自分のメッセージを編集します。
     -   `/delete <id>`: 自分のメッセージを削除します。

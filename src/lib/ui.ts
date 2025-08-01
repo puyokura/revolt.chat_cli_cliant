@@ -4,10 +4,10 @@ import { Server, Channel, User } from './types';
 import { Config } from './config';
 import { marked } from 'marked';
 import TerminalRenderer from 'marked-terminal';
-
+import inquirerFilePath from 'inquirer-file-path';
 import inquirerCommandPrompt from 'inquirer-command-prompt';
 
-
+inquirer.registerPrompt('file-path', inquirerFilePath);
 inquirer.registerPrompt('command', inquirerCommandPrompt);
 
 marked.setOptions({
@@ -66,6 +66,7 @@ const COMMANDS = [
     '/nick',
     '/profile',
     '/status',
+    '/upload',
     '/reply',
     '/edit',
     '/delete',
@@ -85,7 +86,17 @@ export async function promptMessage(channelName: string): Promise<string> {
     return command;
 }
 
-
+export async function promptFilePath(): Promise<string> {
+    const { filePath } = await inquirer.prompt([
+        {
+            type: 'file-path',
+            name: 'filePath',
+            message: 'Select a file to upload:',
+            basePath: process.cwd(),
+        },
+    ]);
+    return filePath;
+}
 
 export async function displayPastMessages(messages: any[], users: Map<string, User>) {
   console.log(chalk.bold.yellow('\n--- Start of messages ---'));
