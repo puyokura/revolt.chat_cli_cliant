@@ -7,7 +7,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "tsc -p .",
-    "package": "npm run build && pkg . --targets node18-win-x64 --output revolt-cli-v${npm_package_version}.exe && npx rcedit revolt-cli-v${npm_package_version}.exe --set-icon icon.ico",
+    "package": "npm run build && pkg . --targets node18-win-x64 --output revolt-cli-v${npm_package_version}.exe",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -39,7 +39,6 @@
     "@types/node": "^24.1.0",
     "@types/ws": "^8.18.1",
     "pkg": "^5.8.1",
-    "rcedit": "^4.0.1",
     "ts-node": "^10.9.2"
   }
 }
