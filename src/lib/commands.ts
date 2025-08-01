@@ -10,7 +10,7 @@ import {
   updateNickname,
   fetchServerMembers,
 } from './api';
-import { promptFilePath } from './ui';
+
 
 function getPresence(user: User) {
     if (user.bot) return chalk.blue('[BOT]');
@@ -80,14 +80,7 @@ export async function handleUsers(channel: Channel, token: string, users: Map<st
   console.log(chalk.bold.magenta('\n-----------------------------------'));
 }
 
-export async function handleUpload(channelId: string, token: string) {
-  const filePath = await promptFilePath();
-  const attachmentId = await uploadFile(filePath, token);
-  if (attachmentId) {
-    await sendMessage(channelId, token, '', [attachmentId]);
-    console.log(chalk.green('File uploaded successfully!'));
-  }
-}
+
 
 export function handleHelp() {
   console.log(chalk.bold.magenta('--- Available Commands ---'));
@@ -97,7 +90,6 @@ export function handleHelp() {
   console.log(`${chalk.cyan('/nick <name>')} - Sets your server nickname.`);
   console.log(`${chalk.cyan('/profile <user>')} - Shows user profile.`);
   console.log(`${chalk.cyan('/status <pres> [msg]')} - Sets your status (online, idle, busy, invisible).`);
-  console.log(`${chalk.cyan('/upload')}    - Uploads a file to the channel.`);
   console.log(`${chalk.cyan('/reply <id> <msg>')} - Replies to a message.`);
   console.log(`${chalk.cyan('/edit <id> <msg>')}  - Edits your message.`);
   console.log(`${chalk.cyan('/delete <id>')} - Deletes your message.`);

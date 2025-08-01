@@ -52,7 +52,7 @@ import {
 import {
   handleWhoami,
   handleUsers,
-  handleUpload,
+  
   handleHelp,
   handleNick,
   handleReply,
@@ -104,9 +104,7 @@ async function messageLoop(channel: Channel) {
         case '/users':
             handleUsers(channel, state.token!, state.users);
             break;
-        case '/upload':
-            await handleUpload(channel._id, state.token!);
-            break;
+        
         case '/help':
             handleHelp();
             break;
