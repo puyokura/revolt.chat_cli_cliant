@@ -124,19 +124,27 @@ export async function handleUpload(channelId: string, token: string) {
 
 export function handleHelp() {
   console.log(chalk.bold.magenta('--- Available Commands ---'));
-  console.log(`${chalk.cyan('/help')}      - Shows this help message.`);
-  console.log(`${chalk.cyan('/users')}     - Lists users in the current channel.`);
-  console.log(`${chalk.cyan('/whoami')}   - Displays your user information.`);
-  console.log(`${chalk.cyan('/nick <name>')} - Sets your server nickname.`);
-  console.log(`${chalk.cyan('/profile <user>')} - Shows user profile.`);
-  console.log(`${chalk.cyan('/status <pres> [msg]')} - Sets your status (online, idle, busy, invisible).`);
-  console.log(`${chalk.cyan('/upload')}    - Uploads a file to the channel.`);
-  console.log(`${chalk.cyan('/reply <id> <msg>')} - Replies to a message.`);
-  console.log(`${chalk.cyan('/edit <id> <msg>')}  - Edits your message.`);
-  console.log(`${chalk.cyan('/delete <id>')} - Deletes your message.`);
-  console.log(`${chalk.cyan('/logout')}    - Deletes session token and exits.`);
-  console.log(`${chalk.cyan('/leave')}      - Leaves the current channel.`);
-  console.log(`${chalk.cyan('/exit')}      - Exits the application.`);
+  console.log(`${chalk.cyan('/help')}                    - Shows this help message.`);
+  console.log(`${chalk.cyan('/users')}                   - Lists users in the current server.`);
+  console.log(`${chalk.cyan('/whoami')}                 - Displays your user information.`);
+  console.log(`${chalk.cyan('/nick <name>')}             - Sets your server nickname.`);
+  console.log(`${chalk.cyan('/profile <user>')}          - Shows user profile.`);
+  console.log(`${chalk.cyan('/status <pres> [msg]')}    - Sets your status (online, idle, busy, invisible).`);
+  console.log(`${chalk.cyan('/upload')}                  - Uploads a file to the channel.`);
+  console.log(`${chalk.cyan('/reply <id> <msg>')}        - Replies to a message.`);
+  console.log(`${chalk.cyan('/edit <id> <msg>')}         - Edits your message.`);
+  console.log(`${chalk.cyan('/delete <id>')}              - Deletes your message.`);
+  console.log(`${chalk.cyan('/logout')}                  - Deletes session token and exits.`);
+  console.log(`${chalk.cyan('/config [key] [val]')}      - Views or edits CLI configuration.`);
+  console.log(`${chalk.cyan('/userconfig')}              - Views your user configuration.`);
+  console.log(`${chalk.cyan('/serverconfig')}            - Views server configuration.`);
+  console.log(chalk.bold.magenta('--- Moderation Commands ---'));
+  console.log(`${chalk.cyan('/kick <user>')}              - Kicks a user from the server.`);
+  console.log(`${chalk.cyan('/ban <user> [reason]')}     - Bans a user from the server.`);
+  console.log(`${chalk.cyan('/timeout <user> <time_s>')} - Mutes a user for a specified time.`);
+  console.log(chalk.bold.magenta('--- Navigation ---'));
+  console.log(`${chalk.cyan('/leave')}                    - Leaves the current channel.`);
+  console.log(`${chalk.cyan('/exit')}                    - Exits the application.`);
   console.log(chalk.bold.magenta('------------------------'));
 }
 
