@@ -155,8 +155,8 @@ async function selectServerAndChannel(): Promise<Channel | null> {
     const { users: memberData } = await fetchServerMembers(serverId, state.token!);
     memberData.forEach(member => state.users.set(member._id, member));
 
-    const serverChannels = Array.from(state.channels.values()).filter(c => c.server === serverId);
-    const channelId = await selectChannel(serverChannels, config);
+    const server = state.servers.get(serverId)!;
+    const channelId = await selectChannel(server, state.channels, config);
 
     if (channelId === BACK_CHOICE.value) {
         return null; // User wants to go back

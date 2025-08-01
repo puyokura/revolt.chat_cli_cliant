@@ -12,11 +12,22 @@ export interface User {
 }
 
 /**
+ * Revolt Server Category Object
+ */
+export interface Category {
+    _id: string;
+    title: string;
+    channels: string[];
+}
+
+/**
  * Revolt Server Object
  */
 export interface Server {
   _id: string;
   name: string;
+  channels: string[];
+  categories?: Category[];
 }
 
 /**

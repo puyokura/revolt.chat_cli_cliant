@@ -39,12 +39,34 @@ export async function selectServer(servers: Server[], config: Config): Promise<s
     return selectedServerId;
 }
 
-export async function selectChannel(channels: Channel[], config: Config): Promise<string> {
-    const channelChoices = [
-        ...channels.map(channel => ({ name: `#${channel.name}`, value: channel._id })),
-        new Separator(),
-        BACK_CHOICE,
-    ];
+export async function selectChannel(server: Server, channels: Map<string, Channel>, config: Config): Promise<string> {
+    const channelChoices: (object | Separator)[] = [];
+    const uncategorizedChannels = new Set(server.channels);
+
+    if (server.categories) {
+        for (const category of server.categories) {
+            channelChoices.push(new Separator(chalk.bold.yellow(`- ${category.title} -`)));
+            for (const channelId of category.channels) {
+                const channel = channels.get(channelId);
+                if (channel) {
+                    channelChoices.push({ name: `#${channel.name}`, value: channel._id });
+                    uncategorizedChannels.delete(channelId);
+                }
+            }
+        }
+    }
+
+    if (uncategorizedChannels.size > 0) {
+        channelChoices.push(new Separator(chalk.bold.yellow('- Uncategorized -')));
+        for (const channelId of uncategorizedChannels) {
+            const channel = channels.get(channelId);
+            if (channel) {
+                channelChoices.push({ name: `#${channel.name}`, value: channel._id });
+            }
+        }
+    }
+
+    channelChoices.push(new Separator(), BACK_CHOICE);
 
     const { selectedChannelId } = await inquirer.prompt([
         {
