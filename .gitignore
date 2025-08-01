@@ -125,7 +125,7 @@ build
 *.app
 
 # Crash logs
-*-crash-log.txt
+*-crash-*.txt
 crash-log.txt
 
 issue.md
