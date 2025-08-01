@@ -32,6 +32,7 @@ import {
   sendMessage,
   fetchSelf,
   fetchServerMembers,
+  fetchApiConfig,
 } from './lib/api';
 import {
   User,
@@ -76,6 +77,7 @@ const state = {
     self: null as User | null,
     ws: null as WebSocket | null,
     currentChannel: null as Channel | null,
+    messageCache: [] as any[],
     appState: AppState.INITIALIZING,
 };
 
@@ -112,13 +114,13 @@ async function messageLoop(channel: Channel) {
             await handleNick(channel.server, state.self!._id, state.token!, args);
             break;
         case '/reply':
-            await handleReply(channel._id, state.token!, args);
+            await handleReply(channel._id, state.token!, args, state.messageCache);
             break;
         case '/edit':
-            await handleEdit(channel._id, state.token!, args);
+            await handleEdit(channel._id, state.token!, args, state.messageCache);
             break;
         case '/delete':
-            await handleDelete(channel._id, state.token!, args);
+            await handleDelete(channel._id, state.token!, args, state.messageCache);
             break;
         case '/profile':
             await handleProfile(state.token!, args[0], state.users);
@@ -170,6 +172,8 @@ async function main() {
   console.log(chalk.blue('======================'));
   console.log(chalk.gray('Type /help for a list of commands.'));
 
+  await fetchApiConfig();
+
   // --- Login ---
   let config = readConfig();
   state.token = config.token || null;
@@ -213,12 +217,15 @@ async function main() {
         break;
 
       case 'Message': {
-        if (state.currentChannel && message.channel === state.currentChannel._id && message.author !== state.self?._id) {
-            const author = state.users.get(message.author);
-            const authorName = author ? author.username : 'Unknown User';
-            const messageId = chalk.gray(`[${message._id.slice(-6)}]`);
-            const formattedContent = await formatMessage(message.content);
-            console.log(`\n${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
+        if (state.currentChannel && message.channel === state.currentChannel._id) {
+            state.messageCache.push(message);
+            if (message.author !== state.self?._id) {
+                const author = state.users.get(message.author);
+                const authorName = author ? author.username : 'Unknown User';
+                const messageId = chalk.gray(`[${message._id.slice(-6)}]`);
+                const formattedContent = await formatMessage(message.content);
+                console.log(`\n${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
+            }
         }
         break;
       }
@@ -259,6 +266,7 @@ async function main() {
       case AppState.CHATTING:
         console.log(chalk.green(`Joining channel: #${state.currentChannel!.name}`));
         const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!);
+        state.messageCache = pastMessages;
         await displayPastMessages(pastMessages, state.users);
         await messageLoop(state.currentChannel!);
         state.appState = AppState.SELECTION; // Go back to selection after leaving

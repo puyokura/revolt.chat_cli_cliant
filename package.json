@@ -1,6 +1,6 @@
 {
   "name": "revolt.chat_cli_cliant",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "revolt.chat_cli_cliant",
   "bin": "dist/index.js",
   "main": "dist/index.js",
@@ -21,21 +21,21 @@
     ]
   },
   "dependencies": {
-    "axios": "^0.27.2",
-    "chalk": "^4.1.2",
+    "axios": "^1.11.0",
+    "chalk": "^5.4.1",
     "form-data": "^4.0.4",
-    "inquirer": "^8.2.4",
+    "inquirer": "^12.9.0",
     "inquirer-command-prompt": "^0.1.0",
     "inquirer-file-path": "^1.0.1",
-    "marked": "^12.0.0",
+    "marked": "^16.1.1",
     "marked-terminal": "^7.3.0",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.8.3",
+    "typescript": "^5.9.2",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/form-data": "^2.2.1",
-    "@types/inquirer": "^8.2.4",
+    "@types/form-data": "^2.5.2",
+    "@types/inquirer": "^9.0.8",
     "@types/node": "^24.1.0",
     "@types/ws": "^8.18.1",
     "pkg": "^5.8.1",

@@ -127,3 +127,6 @@ build
 # Crash logs
 *-crash-log.txt
 crash-log.txt
+
+issue.md
+prompt.md

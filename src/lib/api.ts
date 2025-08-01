@@ -7,7 +7,22 @@ import chalk from 'chalk';
 import { User } from './types';
 
 const API_URL = 'https://api.revolt.chat';
-const AUTUMN_URL = 'https://autumn.revolt.chat';
+let autumnUrl = 'https://autumn.revolt.chat';
+
+/**
+ * Fetches the current Revolt API configuration and updates the Autumn URL.
+ */
+export async function fetchApiConfig() {
+    try {
+        const response = await axios.get(API_URL);
+        if (response.data.features.autumn.url) {
+            autumnUrl = response.data.features.autumn.url;
+            console.log(chalk.gray(`File server URL set to: ${autumnUrl}`));
+        }
+    } catch (error) {
+        console.error(chalk.yellow('Could not fetch API config, using default file server.'));
+    }
+}
 
 /**
  * Revolt APIにログインし、認証トークンを取得します。
@@ -180,29 +195,52 @@ export async function deleteMessage(channelId: string, messageId: string, token:
   }
 }
 
+import https from 'https';
+
 /**
  * ファイルをAutumnにアップロードし、添付ファイルIDを取得します。
  */
 export async function uploadFile(filePath: string, token: string): Promise<string | null> {
-  try {
-    if (!fs.existsSync(filePath)) {
-      console.error(chalk.red('File not found at the specified path.'));
-      return null;
-    }
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
+    return new Promise((resolve, reject) => {
+        if (!fs.existsSync(filePath)) {
+            console.error(chalk.red('File not found at the specified path.'));
+            return resolve(null);
+        }
 
-    const uploadResponse = await axios.post(`${AUTUMN_URL}/attachments`, form, {
-      headers: {
-        ...form.getHeaders(),
-        'x-session-token': token,
-      },
+        const form = new FormData();
+        form.append('file', fs.createReadStream(filePath));
+
+        const req = https.request(
+            {
+                hostname: new URL(autumnUrl).hostname,
+                path: '/attachments',
+                method: 'POST',
+                headers: {
+                    ...form.getHeaders(),
+                    'x-session-token': token,
+                },
+            },
+            (res) => {
+                let body = '';
+                res.on('data', (chunk) => (body += chunk));
+                res.on('end', () => {
+                    if (res.statusCode === 200) {
+                        resolve(JSON.parse(body).id);
+                    } else {
+                        console.error(chalk.red(`File upload failed with status ${res.statusCode}:`), body);
+                        resolve(null);
+                    }
+                });
+            }
+        );
+
+        req.on('error', (e) => {
+            console.error(chalk.red('File upload failed:', e.message));
+            resolve(null);
+        });
+
+        form.pipe(req);
     });
-    return uploadResponse.data.id;
-  } catch (error: any) {
-    console.error(chalk.red('File upload failed:', error.message));
-    return null;
-  }
 }
 
 /**

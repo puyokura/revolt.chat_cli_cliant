@@ -1,4 +1,3 @@
-
 import chalk from 'chalk';
 import { User, Channel } from './types';
 import {
@@ -17,6 +16,11 @@ function getPresence(user: User) {
     if (user.bot) return chalk.blue('[BOT]');
     if (user.online) return chalk.green('Online');
     return chalk.gray('Offline');
+}
+
+function findMessageId(shortId: string, messageCache: any[]): string | null {
+    const message = messageCache.find(m => m._id.slice(-6) === shortId);
+    return message ? message._id : null;
 }
 
 export function handleWhoami(self: User | null) {
@@ -112,41 +116,56 @@ export async function handleNick(serverId: string, userId: string, token: string
     console.log(chalk.green(`Nickname updated to "${nickname}".`));
 }
 
-export async function handleReply(channelId: string, token: string, args: string[]) {
+export async function handleReply(channelId: string, token: string, args: string[], messageCache: any[]) {
   if (args.length < 2) {
     console.log(chalk.red('Usage: /reply <message_id> <content>'));
     return;
   }
-  const messageId = args[0];
+  const shortId = args[0];
+  const fullId = findMessageId(shortId, messageCache);
+  if (!fullId) {
+      console.log(chalk.red(`Message with ID ending in "${shortId}" not found in recent history.`));
+      return;
+  }
   const content = args.slice(1).join(' ');
 
-  console.log(chalk.yellow(`Replying to message ${messageId}...`));
+  console.log(chalk.yellow(`Replying to message ${shortId}...`));
 
-  await sendMessage(channelId, token, content, undefined, [{ id: messageId, mention: false }]);
+  await sendMessage(channelId, token, content, undefined, [{ id: fullId, mention: false }]);
   console.log(chalk.green('Reply sent!'));
 }
 
-export async function handleEdit(channelId: string, token: string, args: string[]) {
+export async function handleEdit(channelId: string, token: string, args: string[], messageCache: any[]) {
   if (args.length < 2) {
     console.log(chalk.red('Usage: /edit <message_id> <new_content>'));
     return;
   }
-  const messageId = args[0];
+  const shortId = args[0];
+  const fullId = findMessageId(shortId, messageCache);
+    if (!fullId) {
+        console.log(chalk.red(`Message with ID ending in "${shortId}" not found in recent history.`));
+        return;
+    }
   const content = args.slice(1).join(' ');
 
-  await editMessage(channelId, messageId, token, content);
-  console.log(chalk.green(`Message ${messageId} edited.`));
+  await editMessage(channelId, fullId, token, content);
+  console.log(chalk.green(`Message ${shortId} edited.`));
 }
 
-export async function handleDelete(channelId: string, token: string, args: string[]) {
+export async function handleDelete(channelId: string, token: string, args: string[], messageCache: any[]) {
   if (args.length < 1) {
     console.log(chalk.red('Usage: /delete <message_id>'));
     return;
   }
-  const messageId = args[0];
+  const shortId = args[0];
+  const fullId = findMessageId(shortId, messageCache);
+    if (!fullId) {
+        console.log(chalk.red(`Message with ID ending in "${shortId}" not found in recent history.`));
+        return;
+    }
 
-  await deleteMessage(channelId, messageId, token);
-  console.log(chalk.green(`Message ${messageId} deleted. (You may need to restart to see the change)`));
+  await deleteMessage(channelId, fullId, token);
+  console.log(chalk.green(`Message ${shortId} deleted.`));
 }
 
 export async function handleProfile(token: string, username: string, users: Map<string, User>) {
@@ -171,9 +190,9 @@ export async function handleProfile(token: string, username: string, users: Map<
     if (profile.status?.text) {
         console.log(`  └ ${chalk.italic(profile.status.text)}`);
     }
-    if (profile.content) {
+    if (profile.profile?.content) {
       console.log(chalk.bold.magenta('--- Bio ---'));
-      console.log(profile.content);
+      console.log(profile.profile.content);
       console.log(chalk.bold.magenta('-----------'));
     }
     if (profile.avatar) {
