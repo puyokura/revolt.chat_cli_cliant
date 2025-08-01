@@ -1,7 +1,7 @@
 import inquirer, { Separator } from 'inquirer';
 import chalk from 'chalk';
 import { Server, Channel, User } from './types';
-import { Config } from './config';
+import { Config, readConfig } from './config';
 import { marked } from 'marked';
 import TerminalRenderer from 'marked-terminal';
 import inquirerFilePath from 'inquirer-file-path';
@@ -95,6 +95,13 @@ const COMMANDS = [
     '/logout',
     '/leave',
     '/exit',
+    '/config',
+    '/userconfig',
+    '/serverconfig',
+    '/kick',
+    '/ban',
+    '/timeout',
+    '/timeout',
 ];
 
 export async function promptMessage(channelName: string): Promise<string> {
@@ -122,14 +129,16 @@ export async function promptFilePath(): Promise<string> {
 }
 
 export async function displayPastMessages(messages: any[], users: Map<string, User>) {
+  const config = readConfig();
   console.log(chalk.bold.yellow('\n--- Start of messages ---'));
   if (Array.isArray(messages)) {
     for (const msg of messages.reverse()) {
       const author = users.get(msg.author);
       const authorName = author ? author.username : 'Unknown User';
+      const timestamp = config.showTimestamps ? chalk.gray(`[${new Date(msg.createdAt).toLocaleTimeString()}]`) : '';
       const messageId = chalk.gray(`[${msg._id.slice(-6)}]`);
       const formattedContent = await formatMessage(msg.content);
-      console.log(`${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
+      console.log(`${timestamp}${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
     }
   }
   console.log(chalk.bold.yellow('--- End of past messages ---'));

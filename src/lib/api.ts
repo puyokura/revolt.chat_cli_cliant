@@ -4,7 +4,7 @@ import WebSocket from 'ws';
 import FormData from 'form-data';
 import fs from 'fs';
 import chalk from 'chalk';
-import { User } from './types';
+import { User, Role } from './types';
 
 const API_URL = 'https://api.revolt.chat';
 let autumnUrl = 'https://autumn.revolt.chat';
@@ -90,7 +90,7 @@ export async function fetchSelf(token: string): Promise<User> {
 /**
  * 指定されたサーバーのメンバーリストを取得します。
  */
-export async function fetchServerMembers(serverId: string, token: string): Promise<{ users: User[] }> {
+export async function fetchServerMembers(serverId: string, token: string): Promise<{ users: User[], members: any[] }> {
     try {
         const response = await axios.get(`${API_URL}/servers/${serverId}/members`, {
             headers: { 'x-session-token': token },
@@ -98,7 +98,7 @@ export async function fetchServerMembers(serverId: string, token: string): Promi
         return response.data;
     } catch (error) {
         console.error(chalk.red(`Failed to fetch members for server ${serverId}.`));
-        return { users: [] };
+        return { users: [], members: [] };
     }
 }
 
@@ -291,58 +291,92 @@ export async function updateNickname(serverId: string, userId: string, token: st
 }
 
 /**
- * フレンドリストを取得します。
+ * サーバーからユーザーをキックします。
  */
-export async function fetchFriends(token: string): Promise<any[]> {
-  try {
-    const response = await axios.get(`${API_URL}/users/dms`, {
-      headers: { 'x-session-token': token },
-    });
-    return response.data;
-  } catch (error) {
-    console.error(chalk.red('Failed to fetch friends.'));
-    return [];
-  }
+export async function kickUser(serverId: string, userId: string, token: string): Promise<boolean> {
+    try {
+        await axios.delete(`${API_URL}/servers/${serverId}/members/${userId}`, {
+            headers: { 'x-session-token': token },
+        });
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO KICK USER ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return false;
+    }
 }
 
 /**
- * フレンドリクエストを送信します。
+ * サーバーからユーザーをBANします。
  */
-export async function addFriend(userId: string, token: string): Promise<void> {
-  try {
-    await axios.post(`${API_URL}/users/${userId}/friend`, {}, {
-      headers: { 'x-session-token': token },
-    });
-  } catch (error: any) {
-    console.error(chalk.red('--- FAILED TO ADD FRIEND ---'));
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<any>;
-      console.error(chalk.red('Status:'), axiosError.response?.status);
-      console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
-    } else {
-      console.error(chalk.red('Unexpected Error:'), error.message);
+export async function banUser(serverId: string, userId: string, token: string, reason?: string): Promise<boolean> {
+    try {
+        await axios.put(`${API_URL}/servers/${serverId}/bans/${userId}`,
+            { reason },
+            { headers: { 'x-session-token': token } }
+        );
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO BAN USER ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return false;
     }
-    console.error(chalk.red('----------------------------'));
-  }
 }
 
 /**
- * フレンドを削除します。
+ * ユーザーのロールを更新します。
  */
-export async function removeFriend(userId: string, token: string): Promise<void> {
-  try {
-    await axios.delete(`${API_URL}/users/${userId}/friend`, {
-      headers: { 'x-session-token': token },
-    });
-  } catch (error: any) {
-    console.error(chalk.red('--- FAILED TO REMOVE FRIEND ---'));
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<any>;
-      console.error(chalk.red('Status:'), axiosError.response?.status);
-      console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
-    } else {
-      console.error(chalk.red('Unexpected Error:'), error.message);
+export async function updateUserRoles(serverId: string, userId: string, token: string, roles: string[]): Promise<boolean> {
+    try {
+        await axios.patch(`${API_URL}/servers/${serverId}/members/${userId}`,
+            { roles },
+            { headers: { 'x-session-token': token } }
+        );
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO UPDATE ROLES ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return false;
     }
-    console.error(chalk.red('-------------------------------'));
-  }
+}
+
+/**
+ * サーバーに新しいロールを作成します。
+ */
+export async function createRole(serverId: string, token: string, name: string, permissions: { [key: string]: boolean }): Promise<Role | null> {
+    try {
+        const response = await axios.post(`${API_URL}/servers/${serverId}/roles`,
+            { name, permissions },
+            { headers: { 'x-session-token': token } }
+        );
+        return response.data;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO CREATE ROLE ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return null;
+    }
 }

@@ -1,5 +1,3 @@
-
-
 import fs from 'fs';
 import path from 'path';
 
@@ -39,7 +37,8 @@ import {
   Channel,
   Server,
   ReadyPayload,
-  MessagePayload
+  MessagePayload,
+  Role,
 } from './lib/types';
 import {
   selectServer,
@@ -61,6 +60,12 @@ import {
   handleProfile,
   handleStatus,
   handleLogout,
+  handleUserConfig,
+  handleServerConfig,
+  handleConfig,
+  handleKick,
+  handleBan,
+  handleTimeout,
 } from './lib/commands';
 
 // --- Application State ---
@@ -74,6 +79,7 @@ const state = {
     users: new Map<string, User>(),
     servers: new Map<string, Server>(),
     channels: new Map<string, Channel>(),
+    roles: new Map<string, Role>(),
     token: '' as string | null,
     self: null as User | null,
     ws: null as WebSocket | null,
@@ -103,7 +109,8 @@ async function messageLoop(channel: Channel) {
             handleWhoami(state.self);
             break;
         case '/users':
-            handleUsers(channel, state.token!, state.users);
+            const server = state.servers.get(channel.server)!;
+            handleUsers(server, state.users);
             break;
         case '/upload':
             await handleUpload(channel._id, state.token!);
@@ -124,7 +131,8 @@ async function messageLoop(channel: Channel) {
             await handleDelete(channel._id, state.token!, args, state.messageCache);
             break;
         case '/profile':
-            await handleProfile(state.token!, args[0], state.users);
+            const serverForProfile = state.servers.get(channel.server)!;
+            await handleProfile(state.token!, args[0], state.users, serverForProfile);
             break;
         case '/status':
             await handleStatus(state.token!, args);
@@ -133,6 +141,28 @@ async function messageLoop(channel: Channel) {
             handleLogout();
             state.ws?.close();
             return;
+        case '/userconfig':
+            handleUserConfig(state.self);
+            break;
+        case '/serverconfig':
+            const serverForConfig = state.servers.get(channel.server)!;
+            handleServerConfig(serverForConfig);
+            break;
+        case '/config':
+            handleConfig(args);
+            break;
+        case '/kick':
+            const serverForKick = state.servers.get(channel.server)!;
+            await handleKick(args, state.self!, serverForKick, state.users, state.token!);;
+            break;
+        case '/ban':
+            const serverForBan = state.servers.get(channel.server)!;
+            await handleBan(args, state.self!, serverForBan, state.users, state.token!);;
+            break;
+        case '/timeout':
+            const serverForTimeout = state.servers.get(channel.server)!;
+            await handleTimeout(args, state.self!, serverForTimeout, state.users, state.token!);;
+            break;
         default:
             if (input.trim()) {
                 const sentMessage = await sendMessage(channel._id, state.token!, input);
@@ -152,8 +182,14 @@ async function selectServerAndChannel(): Promise<Channel | null> {
     const serverId = await selectServer(Array.from(state.servers.values()), config);
     
     console.log(chalk.gray('Fetching server members...'));
-    const { users: memberData } = await fetchServerMembers(serverId, state.token!);
-    memberData.forEach(member => state.users.set(member._id, member));
+    const { users, members } = await fetchServerMembers(serverId, state.token!);;
+    users.forEach(user => state.users.set(user._id, user));
+    members.forEach(member => {
+        const user = state.users.get(member._id.user);
+        if (user) {
+            user.roles = member.roles;
+        }
+    });
 
     const server = state.servers.get(serverId)!;
     const channelId = await selectChannel(server, state.channels, config);
@@ -201,21 +237,28 @@ async function main() {
   }
 
   // --- WebSocket Connection ---
-  state.ws = connectWebSocket(state.token!);
+  state.ws = connectWebSocket(state.token!);;
   state.ws.on('message', async (data) => {
     const message = JSON.parse(data.toString());
 
     switch (message.type) {
       case 'Authenticated':
         console.log(chalk.green('Successfully authenticated with WebSocket.'));
-        state.self = await fetchSelf(state.token!);
+        state.self = await fetchSelf(state.token!);;
         state.users.set(state.self._id, state.self);
         break;
 
       case 'Ready':
         const readyPayload = message as ReadyPayload;
         readyPayload.users.forEach(user => state.users.set(user._id, user));
-        readyPayload.servers.forEach(server => state.servers.set(server._id, server));
+        readyPayload.servers.forEach(server => {
+            state.servers.set(server._id, server);
+            if (server.roles) {
+                Object.entries(server.roles).forEach(([id, role]) => {
+                    state.roles.set(id, { ...role, _id: id });
+                });
+            }
+        });
         readyPayload.channels.forEach(channel => state.channels.set(channel._id, channel));
         console.log(chalk.cyan('Ready to chat!'));
         state.appState = AppState.SELECTION; // Move to selection state
@@ -270,10 +313,10 @@ async function main() {
 
       case AppState.CHATTING:
         console.log(chalk.green(`Joining channel: #${state.currentChannel!.name}`));
-        const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!);
+        const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!);;
         state.messageCache = pastMessages;
         await displayPastMessages(pastMessages, state.users);
-        await messageLoop(state.currentChannel!);
+        await messageLoop(state.currentChannel!);;
         state.appState = AppState.SELECTION; // Go back to selection after leaving
         break;
     }

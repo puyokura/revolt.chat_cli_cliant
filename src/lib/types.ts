@@ -4,11 +4,22 @@
 export interface User {
   _id: string;
   username: string;
-  bot?: any; // bot or user
+  bot?: any; 
   online?: boolean;
   status?: {
     text?: string;
   };
+  roles?: string[]; // Added from member data
+}
+
+/**
+ * Revolt Role Object
+ */
+export interface Role {
+    _id: string;
+    name: string;
+    colour?: string;
+    permissions: [number, number];
 }
 
 /**
@@ -28,6 +39,7 @@ export interface Server {
   name: string;
   channels: string[];
   categories?: Category[];
+  roles?: { [key: string]: Role };
 }
 
 /**

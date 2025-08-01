@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { User, Channel } from './types';
+import { User, Channel, Server, Role } from './types';
 import {
   uploadFile,
   sendMessage,
@@ -9,9 +9,13 @@ import {
   updateUserStatus,
   updateNickname,
   fetchServerMembers,
+  kickUser,
+  banUser,
+  updateUserRoles,
+  createRole,
 } from './api';
 import { promptFilePath } from './ui';
-import { clearConfig } from './config';
+import { clearConfig, readConfig, writeConfig } from './config';
 
 function getPresence(user: User) {
     if (user.bot) return chalk.blue('[BOT]');
@@ -22,6 +26,29 @@ function getPresence(user: User) {
 function findMessageId(shortId: string, messageCache: any[]): string | null {
     const message = messageCache.find(m => m._id.slice(-6) === shortId);
     return message ? message._id : null;
+}
+
+function displayUserRoles(user: User, server: Server) {
+    if (user.roles && server.roles) {
+        const userRoles = user.roles
+            .map(roleId => server.roles![roleId])
+            .filter(Boolean)
+            .map(role => chalk.hex(role.colour || '#FFFFFF')(`[${role.name}]`));
+        if (userRoles.length > 0) {
+            return ' ' + userRoles.join(' ');
+        }
+    }
+    return '';
+}
+
+function hasPermission(user: User, server: Server, permission: string) {
+    if (!user.roles || !server.roles) return false;
+    // This is a simplified check. A real implementation would need to resolve permission overwrites.
+    return user.roles.some(roleId => {
+        const role = server.roles![roleId];
+        // @ts-ignore
+        return role && role.permissions[permission];
+    });
 }
 
 export function handleWhoami(self: User | null) {
@@ -39,46 +66,51 @@ export function handleWhoami(self: User | null) {
   }
 }
 
-export async function handleUsers(channel: Channel, token: string, users: Map<string, User>) {
-  if (!channel.server) {
-      console.log(chalk.yellow('This command is only available in server channels.'));
-      return;
-  }
+export async function handleUsers(server: Server, users: Map<string, User>) {
+    console.log(chalk.bold.magenta(`--- Users in ${server.name} ---`));
 
-  const { users: memberData } = await fetchServerMembers(channel.server, token);
-  const members = memberData.map(m => users.get(m._id)).filter(Boolean) as User[];
+    const roleGroups: { [key: string]: User[] } = {};
+    const usersWithNoRoles: User[] = [];
 
-  console.log(chalk.bold.magenta(`--- Users in #${channel.name} ---`));
-  
-  const onlineUsers = members.filter(u => u.online && !u.bot);
-  const offlineUsers = members.filter(u => !u.online && !u.bot);
-  const bots = members.filter(u => u.bot);
+    const members = Array.from(users.values()).filter(u => u.roles);
 
-  if (onlineUsers.length > 0) {
-      console.log(chalk.green('\n--- Online ---'));
-      onlineUsers.forEach(user => {
-          console.log(`- ${chalk.cyan(user.username)}`);
-          if (user.status?.text) {
-              console.log(`    └ ${chalk.italic(user.status.text)}`);
-          }
-      });
-  }
+    for (const user of members) {
+        if (user.roles && user.roles.length > 0) {
+            const primaryRoleId = user.roles[0]; // Simple grouping by first role
+            if (!roleGroups[primaryRoleId]) {
+                roleGroups[primaryRoleId] = [];
+            }
+            roleGroups[primaryRoleId].push(user);
+        } else {
+            usersWithNoRoles.push(user);
+        }
+    }
 
-  if (offlineUsers.length > 0) {
-      console.log(chalk.gray('\n--- Offline ---'));
-      offlineUsers.forEach(user => {
-          console.log(`- ${chalk.cyan(user.username)}`);
-      });
-  }
+    const sortedRoleIds = Object.keys(roleGroups).sort((a, b) => {
+        const roleA = server.roles?.[a];
+        const roleB = server.roles?.[b];
+        // A simple sort, can be improved with rank property if available
+        return (roleA?.name || '').localeCompare(roleB?.name || '');
+    });
 
-  if (bots.length > 0) {
-      console.log(chalk.blue('\n--- Bots ---'));
-      bots.forEach(bot => {
-          console.log(`- ${chalk.cyan(bot.username)}`);
-      });
-  }
+    for (const roleId of sortedRoleIds) {
+        const role = server.roles?.[roleId];
+        if (role) {
+            console.log(chalk.hex(role.colour || '#FFFFFF').bold(`\n--- ${role.name} ---`));
+            for (const user of roleGroups[roleId]) {
+                console.log(`- ${chalk.cyan(user.username)} ${getPresence(user)}`);
+            }
+        }
+    }
 
-  console.log(chalk.bold.magenta('\n-----------------------------------'));
+    if (usersWithNoRoles.length > 0) {
+        console.log(chalk.bold(`\n--- No Roles ---`));
+        for (const user of usersWithNoRoles) {
+            console.log(`- ${chalk.cyan(user.username)} ${getPresence(user)}`);
+        }
+    }
+
+    console.log(chalk.bold.magenta('\n-----------------------------------'));
 }
 
 export async function handleUpload(channelId: string, token: string) {
@@ -113,6 +145,50 @@ export function handleLogout() {
     console.log(chalk.green('Logged out. Session token has been cleared.'));
 }
 
+export function handleUserConfig(self: User | null) {
+    if (self) {
+        console.log(chalk.bold.magenta('--- Your User Configuration ---'));
+        console.log(`Username: ${chalk.cyan(self.username)}`);
+        console.log(`Status Text: ${chalk.cyan(self.status?.text || '')}`);
+        // Add more fields as they become available/editable
+        console.log(chalk.bold.magenta('-----------------------------'));
+    } else {
+        console.log(chalk.yellow('Could not find your user information.'));
+    }
+}
+
+export function handleServerConfig(server: Server | null) {
+    if (server) {
+        console.log(chalk.bold.magenta(`--- Server Configuration: ${server.name} ---`));
+        console.log(`ID: ${chalk.gray(server._id)}`);
+        // Add more fields as they become available/editable
+        console.log(chalk.bold.magenta('------------------------------------------'));
+    } else {
+        console.log(chalk.yellow('Could not find server information.'));
+    }
+}
+
+export function handleConfig(args: string[]) {
+    const config = readConfig();
+    const [key, value] = args;
+
+    if (!key) {
+        console.log(chalk.bold.magenta('--- CLI Configuration ---'));
+        console.log(`Show Timestamps: ${chalk.cyan(config.showTimestamps)}`);
+        console.log(chalk.bold.magenta('-------------------------'));
+        return;
+    }
+
+    if (key === 'showTimestamps') {
+        const boolValue = value === 'true';
+        config.showTimestamps = boolValue;
+        writeConfig(config);
+        console.log(chalk.green(`Set showTimestamps to: ${boolValue}`));
+    } else {
+        console.log(chalk.red(`Unknown config key: ${key}`));
+    }
+}
+
 export async function handleNick(serverId: string, userId: string, token: string, args: string[]) {
     const nickname = args.join(' ');
     if (!nickname) {
@@ -121,6 +197,90 @@ export async function handleNick(serverId: string, userId: string, token: string
     }
     await updateNickname(serverId, userId, token, nickname);
     console.log(chalk.green(`Nickname updated to "${nickname}".`));
+}
+
+export async function handleKick(args: string[], self: User, server: Server, users: Map<string, User>, token: string) {
+    if (!hasPermission(self, server, 'KickMembers')) {
+        console.log(chalk.red('You do not have permission to kick members.'));
+        return;
+    }
+    const username = args[0];
+    if (!username) {
+        console.log(chalk.red('Usage: /kick <username>'));
+        return;
+    }
+    const userToKick = Array.from(users.values()).find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (!userToKick) {
+        console.log(chalk.red(`User "${username}" not found.`));
+        return;
+    }
+    const success = await kickUser(server._id, userToKick._id, token);
+    if (success) {
+        console.log(chalk.green(`User "${username}" has been kicked.`));
+    }
+}
+
+export async function handleBan(args: string[], self: User, server: Server, users: Map<string, User>, token: string) {
+    if (!hasPermission(self, server, 'BanMembers')) {
+        console.log(chalk.red('You do not have permission to ban members.'));
+        return;
+    }
+    const username = args[0];
+    if (!username) {
+        console.log(chalk.red('Usage: /ban <username> [reason]'));
+        return;
+    }
+    const userToBan = Array.from(users.values()).find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (!userToBan) {
+        console.log(chalk.red(`User "${username}" not found.`));
+        return;
+    }
+    const reason = args.slice(1).join(' ');
+    const success = await banUser(server._id, userToBan._id, token, reason);
+    if (success) {
+        console.log(chalk.green(`User "${username}" has been banned.`));
+    }
+}
+
+export async function handleTimeout(args: string[], self: User, server: Server, users: Map<string, User>, token: string) {
+    if (!hasPermission(self, server, 'ManageRole')) {
+        console.log(chalk.red('You do not have permission to manage roles for timeout.'));
+        return;
+    }
+    const username = args[0];
+    const duration = parseInt(args[1], 10);
+    if (!username || !duration) {
+        console.log(chalk.red('Usage: /timeout <username> <duration_in_seconds>'));
+        return;
+    }
+
+    const userToMuzzle = Array.from(users.values()).find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (!userToMuzzle) {
+        console.log(chalk.red(`User "${username}" not found.`));
+        return;
+    }
+
+    let muzzledRole = Object.values(server.roles || {}).find(r => r.name === 'Muzzled');
+    if (!muzzledRole) {
+        console.log(chalk.yellow('Muzzled role not found, creating it...'));
+        const newRole = await createRole(server._id, token, 'Muzzled', { send_message: false, invite: false });
+        if (!newRole) {
+            console.log(chalk.red('Failed to create Muzzled role.'));
+            return;
+        }
+        muzzledRole = newRole;
+    }
+
+    const originalRoles = userToMuzzle.roles || [];
+    const newRoles = [...originalRoles, muzzledRole._id];
+
+    await updateUserRoles(server._id, userToMuzzle._id, token, newRoles);
+    console.log(chalk.green(`User "${username}" has been timed out for ${duration} seconds.`));
+
+    setTimeout(async () => {
+        await updateUserRoles(server._id, userToMuzzle._id, token, originalRoles);
+        console.log(chalk.green(`User "${username}" is no longer timed out.`));
+    }, duration * 1000);
 }
 
 export async function handleReply(channelId: string, token: string, args: string[], messageCache: any[]) {
@@ -175,7 +335,7 @@ export async function handleDelete(channelId: string, token: string, args: strin
   console.log(chalk.green(`Message ${shortId} deleted.`));
 }
 
-export async function handleProfile(token: string, username: string, users: Map<string, User>) {
+export async function handleProfile(token: string, username: string, users: Map<string, User>, server: Server) {
     if (!username) {
         console.log(chalk.red('Usage: /profile <username>'));
         return;
@@ -197,6 +357,7 @@ export async function handleProfile(token: string, username: string, users: Map<
     if (profile.status?.text) {
         console.log(`  └ ${chalk.italic(profile.status.text)}`);
     }
+    console.log(`Roles: ${displayUserRoles(user, server)}`);
     if (profile.profile?.content) {
       console.log(chalk.bold.magenta('--- Bio ---'));
       console.log(profile.profile.content);

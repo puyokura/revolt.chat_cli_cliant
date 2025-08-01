@@ -24,6 +24,13 @@
     -   `/logout`: 現在のセッションからログアウトし、設定ファイルを削除します。
     -   `/leave`: 現在のチャンネルから退出します。
     -   `/exit`: アプリケーションを終了します。
+    -   `/config`: CLIの設定を表示・変更します。
+    -   `/userconfig`: ユーザー設定を表示・変更します。
+    -   `/serverconfig`: サーバー設定を表示・変更します。
+    -   `/kick <user>`: サーバーからユーザーをキックします。
+    -   `/ban <user> [reason]`: サーバーからユーザーをBANします。
+    -   `/timeout <user> <duration_in_seconds> [reason]`: ユーザーを一定時間タイムアウトさせます。
+    -   `/timeout <user> <duration_in_seconds> [reason]`: ユーザーを一定時間タイムアウトさせます。
 
 ## プロジェクトの構造
 

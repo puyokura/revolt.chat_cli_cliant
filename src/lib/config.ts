@@ -8,18 +8,23 @@ export interface Config {
   token?: string;
   lastServerId?: string;
   lastChannelId?: string;
+  showTimestamps?: boolean;
 }
+
+const defaultConfig: Config = {
+    showTimestamps: true,
+};
 
 export function readConfig(): Config {
   if (fs.existsSync(CONFIG_PATH)) {
     const content = fs.readFileSync(CONFIG_PATH, 'utf-8');
     try {
-      return JSON.parse(content);
+      return { ...defaultConfig, ...JSON.parse(content) };
     } catch (e) {
-      return {};
+      return defaultConfig;
     }
   }
-  return {};
+  return defaultConfig;
 }
 
 export function writeConfig(config: Config) {
