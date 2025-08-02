@@ -105,10 +105,10 @@ const COMMANDS = [
     '/kick',
     '/ban',
     '/timeout',
-    '/timeout',
     '/react',
     '/unreact',
     '/friends',
+    '/note',
 ];
 
 export async function promptMessage(channelName: string, typingUsers: string[]): Promise<string> {

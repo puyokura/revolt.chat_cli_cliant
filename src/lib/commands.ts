@@ -144,10 +144,16 @@ export function handleHelp() {
   console.log(`${chalk.cyan('/edit <id> <msg>')}         - Edits your message.`);
   console.log(`${chalk.cyan('/delete <id>')}              - Deletes your message.`);
   console.log(`${chalk.cyan('/logout')}                  - Deletes session token and exits.`);
+  console.log(chalk.bold.magenta('--- Social & Notes ---'));
+  console.log(`${chalk.cyan('/friends <list|add|remove>')} - Manages your friends list.`);
+  console.log(`${chalk.cyan('/react <id> <emoji>')}      - Reacts to a message.`);
+  console.log(`${chalk.cyan('/unreact <id> <emoji>')}    - Removes a reaction.`);
+  console.log(`${chalk.cyan('/note <show|set>')}         - Manages your personal notes.`);
+  console.log(chalk.bold.magenta('--- Configuration ---'));
   console.log(`${chalk.cyan('/config [key] [val]')}      - Views or edits CLI configuration.`);
-  console.log(`${chalk.cyan('/userconfig')}              - Views your user configuration.`);
+  console.log(`${chalk.cyan('/userconfig [key] [val]')}  - Views or edits your user profile.`);
   console.log(`${chalk.cyan('/serverconfig')}            - Views server configuration.`);
-  console.log(chalk.bold.magenta('--- Moderation Commands ---'));
+  console.log(chalk.bold.magenta('--- Moderation ---'));
   console.log(`${chalk.cyan('/kick <user>')}              - Kicks a user from the server.`);
   console.log(`${chalk.cyan('/ban <user> [reason]')}     - Bans a user from the server.`);
   console.log(`${chalk.cyan('/timeout <user> <time_s>')} - Mutes a user for a specified time.`);
@@ -157,33 +163,57 @@ export function handleHelp() {
   console.log(chalk.bold.magenta('------------------------'));
 }
 
-export async function handleReact(channelId: string, token: string, args: string[]) {
+export async function handleReact(channelId: string, token: string, args: string[], messageCache: any[]) {
     if (args.length < 2) {
         console.log(chalk.red('Usage: /react <message_id> <emoji>'));
         return;
     }
-    const [messageId, emoji] = args;
+    let [messageId, emoji] = args;
+
+    // Allow using short 6-char ID
+    if (messageId.length === 6) {
+        const fullId = messageCache.find(m => m._id.slice(-6) === messageId)?._id;
+        if (fullId) {
+            messageId = fullId;
+        } else {
+            console.log(chalk.red(`Could not find a message with short ID: ${messageId}`));
+            return;
+        }
+    }
+
     const success = await addReaction(channelId, messageId, emoji, token);
     if (success) {
         console.log(chalk.green(`Reacted with ${emoji} to message ${messageId}`));
     }
 }
 
-export async function handleUnreact(channelId: string, token: string, args: string[]) {
+export async function handleUnreact(channelId: string, token: string, args: string[], messageCache: any[]) {
     if (args.length < 2) {
         console.log(chalk.red('Usage: /unreact <message_id> <emoji>'));
         return;
     }
-    const [messageId, emoji] = args;
+    let [messageId, emoji] = args;
+
+    // Allow using short 6-char ID
+    if (messageId.length === 6) {
+        const fullId = messageCache.find(m => m._id.slice(-6) === messageId)?._id;
+        if (fullId) {
+            messageId = fullId;
+        } else {
+            console.log(chalk.red(`Could not find a message with short ID: ${messageId}`));
+            return;
+        }
+    }
+
     const success = await removeReaction(channelId, messageId, emoji, token);
     if (success) {
         console.log(chalk.green(`Removed reaction ${emoji} from message ${messageId}`));
     }
 }
 
-export async function handleFriends(token: string, args: string[]) {
+export async function handleFriends(token: string, args: string[], allUsers: Map<string, User>) {
     const action = args[0];
-    const userId = args[1];
+    const userNameOrId = args[1];
 
     switch (action) {
         case 'list':
@@ -193,33 +223,83 @@ export async function handleFriends(token: string, args: string[]) {
                 console.log('You have no friends yet.');
             } else {
                 friends.forEach(friend => {
-                    console.log(`${friend.username} (${friend._id})`);
+                    const onlineStatus = friend.online ? chalk.green('Online') : chalk.gray('Offline');
+                    console.log(`${friend.username} (${friend._id}) - ${onlineStatus}`);
                 });
             }
             console.log(chalk.bold.yellow('--------------------'));
             break;
         case 'add':
-            if (!userId) {
-                console.log(chalk.red('Usage: /friends add <user_id>'));
+            if (!userNameOrId) {
+                console.log(chalk.red('Usage: /friends add <username_or_id>'));
                 return;
             }
-            const addSuccess = await addFriend(userId, token);
+            // Find user by name or ID
+            let userIdToAdd = userNameOrId;
+            if (!allUsers.has(userNameOrId)) { // If not a valid ID, search by name
+                const targetUser = Array.from(allUsers.values()).find(u => u.username.toLowerCase() === userNameOrId.toLowerCase());
+                if (targetUser) {
+                    userIdToAdd = targetUser._id;
+                } else {
+                    console.log(chalk.red(`Could not find user: ${userNameOrId}`));
+                    return;
+                }
+            }
+            const addSuccess = await addFriend(userIdToAdd, token);
             if (addSuccess) {
-                console.log(chalk.green(`Friend request sent to ${userId}.`));
+                console.log(chalk.green(`Friend request sent to ${userNameOrId}.`));
             }
             break;
         case 'remove':
-            if (!userId) {
-                console.log(chalk.red('Usage: /friends remove <user_id>'));
+            if (!userNameOrId) {
+                console.log(chalk.red('Usage: /friends remove <username_or_id>'));
                 return;
             }
-            const removeSuccess = await removeFriend(userId, token);
+            let userIdToRemove = userNameOrId;
+            if (!allUsers.has(userNameOrId)) { // If not a valid ID, search by name
+                const targetUser = Array.from(allUsers.values()).find(u => u.username.toLowerCase() === userNameOrId.toLowerCase());
+                if (targetUser) {
+                    userIdToRemove = targetUser._id;
+                } else {
+                    console.log(chalk.red(`Could not find user: ${userNameOrId}`));
+                    return;
+                }
+            }
+            const removeSuccess = await removeFriend(userIdToRemove, token);
             if (removeSuccess) {
-                console.log(chalk.green(`Removed friend ${userId}.`));
+                console.log(chalk.green(`Removed friend ${userNameOrId}.`));
             }
             break;
         default:
-            console.log(chalk.red('Usage: /friends <list|add|remove> [user_id]'));
+            console.log(chalk.red('Usage: /friends <list|add|remove> [username_or_id]'));
+            break;
+    }
+}
+
+export async function handleNote(self: User | null, token: string, args: string[]) {
+    if (!self) {
+        console.log(chalk.red('User data not available yet.'));
+        return;
+    }
+
+    const action = args[0];
+    const value = args.slice(1).join(' ');
+
+    switch (action) {
+        case 'set':
+            const setSuccess = await editUser(self._id, token, { profile: { content: value } });
+            if (setSuccess) {
+                console.log(chalk.green('Successfully updated your notes.'));
+                if (self.profile) self.profile.content = value;
+                else self.profile = { content: value };
+            }
+            break;
+        case 'show':
+        default:
+            const notes = self.profile?.content || 'You have no notes yet.';
+            console.log(chalk.bold.yellow('\n--- Your Notes ---'));
+            console.log(notes);
+            console.log(chalk.bold.yellow('--- End of Notes ---'));
             break;
     }
 }

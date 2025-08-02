@@ -69,6 +69,7 @@ import {
   handleReact,
   handleUnreact,
   handleFriends,
+  handleNote,
 } from './lib/commands';
 
 // --- Application State ---
@@ -169,13 +170,16 @@ async function messageLoop(channel: Channel) {
             await handleTimeout(args, state.self!, serverForTimeout, state.users, state.token!);;
             break;
         case '/react':
-            await handleReact(channel._id, state.token!, args);
+            await handleReact(channel._id, state.token!, args, state.messageCache);
             break;
         case '/unreact':
-            await handleUnreact(channel._id, state.token!, args);
+            await handleUnreact(channel._id, state.token!, args, state.messageCache);
             break;
         case '/friends':
-            await handleFriends(state.token!, args);
+            await handleFriends(state.token!, args, state.users);
+            break;
+        case '/note':
+            await handleNote(state.self, state.token!, args);
             break;
         default:
             if (input.trim()) {
