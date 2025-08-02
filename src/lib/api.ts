@@ -380,3 +380,117 @@ export async function createRole(serverId: string, token: string, name: string, 
         return null;
     }
 }
+
+/**
+ * Adds a reaction to a message.
+ */
+export async function addReaction(channelId: string, messageId: string, emoji: string, token: string): Promise<boolean> {
+    try {
+        await axios.put(`${API_URL}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, 
+            {},
+            { headers: { 'x-session-token': token } }
+        );
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO ADD REACTION ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return false;
+    }
+}
+
+/**
+ * Removes a reaction from a message.
+ */
+export async function removeReaction(channelId: string, messageId: string, emoji: string, token: string): Promise<boolean> {
+    try {
+        await axios.delete(`${API_URL}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
+            headers: { 'x-session-token': token },
+        });
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO REMOVE REACTION ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return false;
+    }
+}
+
+/**
+ * Fetches the user's friends.
+ */
+export async function fetchFriends(token: string): Promise<User[]> {
+    try {
+        const response = await axios.get(`${API_URL}/users/@me/friends`, {
+            headers: { 'x-session-token': token },
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO FETCH FRIENDS ---'));
+        return [];
+    }
+}
+
+/**
+ * Adds a user as a friend.
+ */
+export async function addFriend(userId: string, token: string): Promise<boolean> {
+    try {
+        await axios.put(`${API_URL}/users/${userId}/friend`, 
+            {},
+            { headers: { 'x-session-token': token } }
+        );
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO ADD FRIEND ---'));
+        return false;
+    }
+}
+
+/**
+ * Removes a user as a friend.
+ */
+export async function removeFriend(userId: string, token: string): Promise<boolean> {
+    try {
+        await axios.delete(`${API_URL}/users/${userId}/friend`, {
+            headers: { 'x-session-token': token },
+        });
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO REMOVE FRIEND ---'));
+        return false;
+    }
+}
+
+/**
+ * Edits the user's profile.
+ */
+export async function editUser(userId: string, token: string, data: any): Promise<boolean> {
+    try {
+        await axios.patch(`${API_URL}/users/${userId}`, 
+            data, 
+            { headers: { 'x-session-token': token } }
+        );
+        return true;
+    } catch (error: any) {
+        console.error(chalk.red('--- FAILED TO EDIT USER ---'));
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            console.error(chalk.red('Status:'), axiosError.response?.status);
+            console.error(chalk.red('Data:'), JSON.stringify(axiosError.response?.data, null, 2));
+        } else {
+            console.error(chalk.red('Unexpected Error:'), error.message);
+        }
+        return false;
+    }
+}

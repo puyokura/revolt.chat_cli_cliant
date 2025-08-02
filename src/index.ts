@@ -66,6 +66,9 @@ import {
   handleKick,
   handleBan,
   handleTimeout,
+  handleReact,
+  handleUnreact,
+  handleFriends,
 } from './lib/commands';
 
 // --- Application State ---
@@ -85,6 +88,7 @@ const state = {
     ws: null as WebSocket | null,
     currentChannel: null as Channel | null,
     messageCache: [] as any[],
+    typingUsers: [] as string[],
     appState: AppState.INITIALIZING,
 };
 
@@ -92,7 +96,8 @@ const state = {
 
 async function messageLoop(channel: Channel) {
   while (true) {
-    const input = await promptMessage(channel.name);
+    const userNames = state.typingUsers.map(id => state.users.get(id)?.username || 'Someone');
+    const input = await promptMessage(channel.name, userNames);
     const args = input.split(' ').slice(1);
     const command = input.toLowerCase().split(' ')[0];
 
@@ -142,7 +147,7 @@ async function messageLoop(channel: Channel) {
             state.ws?.close();
             return;
         case '/userconfig':
-            handleUserConfig(state.self);
+            await handleUserConfig(state.self, state.token!, args);
             break;
         case '/serverconfig':
             const serverForConfig = state.servers.get(channel.server)!;
@@ -163,6 +168,15 @@ async function messageLoop(channel: Channel) {
             const serverForTimeout = state.servers.get(channel.server)!;
             await handleTimeout(args, state.self!, serverForTimeout, state.users, state.token!);;
             break;
+        case '/react':
+            await handleReact(channel._id, state.token!, args);
+            break;
+        case '/unreact':
+            await handleUnreact(channel._id, state.token!, args);
+            break;
+        case '/friends':
+            await handleFriends(state.token!, args);
+            break;
         default:
             if (input.trim()) {
                 const sentMessage = await sendMessage(channel._id, state.token!, input);
@@ -180,6 +194,16 @@ async function messageLoop(channel: Channel) {
 async function selectServerAndChannel(): Promise<Channel | null> {
     const config = readConfig();
     const serverId = await selectServer(Array.from(state.servers.values()), config);
+
+    if (serverId === 'my-notes') {
+        const self = await fetchSelf(state.token!);
+        const notes = self.profile?.content || 'You have no notes yet.';
+        console.log(chalk.bold.yellow('\n--- Your Notes ---'));
+        console.log(await formatMessage(notes));
+        console.log(chalk.bold.yellow('--- End of Notes ---'));
+        await inquirer.prompt({ type: 'input', name: 'enter', message: 'Press Enter to continue...' });
+        return null; // Go back to server selection
+    }
     
     console.log(chalk.gray('Fetching server members...'));
     const { users, members } = await fetchServerMembers(serverId, state.token!);;
@@ -289,6 +313,20 @@ async function main() {
       case 'MessageDelete': {
         if (state.currentChannel && message.channel === state.currentChannel._id) {
             console.log(chalk.italic.red(`\n[Message ${message.id.slice(-6)} deleted]`));
+        }
+        break;
+      }
+
+      case 'BeginTyping': {
+        if (message.channel === state.currentChannel?._id && !state.typingUsers.includes(message.user)) {
+          state.typingUsers.push(message.user);
+        }
+        break;
+      }
+
+      case 'EndTyping': {
+        if (message.channel === state.currentChannel?._id) {
+          state.typingUsers = state.typingUsers.filter(id => id !== message.user);
         }
         break;
       }

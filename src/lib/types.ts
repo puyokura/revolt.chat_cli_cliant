@@ -4,12 +4,19 @@
 export interface User {
   _id: string;
   username: string;
-  bot?: any; 
-  online?: boolean;
-  status?: {
-    text?: string;
+  avatar: any;
+  badges: number;
+  status: {
+    text: string;
+    presence: 'Online' | 'Idle' | 'Busy' | 'Invisible';
+  } | null;
+  profile?: {
+    content?: string;
+    background?: string;
   };
-  roles?: string[]; // Added from member data
+  roles?: string[];
+  online: boolean;
+  bot?: any;
 }
 
 /**

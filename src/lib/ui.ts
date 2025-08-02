@@ -26,7 +26,11 @@ export async function formatMessage(content: string): Promise<string> {
 export const BACK_CHOICE = { name: '.. Go Back', value: '__BACK__' };
 
 export async function selectServer(servers: Server[], config: Config): Promise<string> {
-    const serverChoices = servers.map(server => ({ name: server.name, value: server._id }));
+    const serverChoices = [
+        { name: '📝 My Notes', value: 'my-notes' },
+        new Separator(),
+        ...servers.map(server => ({ name: server.name, value: server._id }))
+    ];
     const { selectedServerId } = await inquirer.prompt([
         {
             type: 'list',
@@ -102,14 +106,24 @@ const COMMANDS = [
     '/ban',
     '/timeout',
     '/timeout',
+    '/react',
+    '/unreact',
+    '/friends',
 ];
 
-export async function promptMessage(channelName: string): Promise<string> {
+export async function promptMessage(channelName: string, typingUsers: string[]): Promise<string> {
+    let typingIndicator = '';
+    if (typingUsers.length > 0) {
+        const names = typingUsers.slice(0, 3).join(', ');
+        const extra = typingUsers.length > 3 ? ` and ${typingUsers.length - 3} others` : '';
+        typingIndicator = chalk.italic.gray(`\n${names}${extra} are typing...`);
+    }
+
     const { command } = await inquirer.prompt([
         {
             type: 'command',
             name: 'command',
-            message: chalk.yellow(`[${channelName}]> `),
+            message: `${typingIndicator}\n${chalk.yellow(`[${channelName}]> `)}`,
             autoCompletion: COMMANDS,
         },
     ]);
@@ -138,7 +152,8 @@ export async function displayPastMessages(messages: any[], users: Map<string, Us
       const timestamp = config.showTimestamps ? chalk.gray(`[${new Date(msg.createdAt).toLocaleTimeString()}]`) : '';
       const messageId = chalk.gray(`[${msg._id.slice(-6)}]`);
       const formattedContent = await formatMessage(msg.content);
-      console.log(`${timestamp}${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
+      const reactions = msg.reactions ? Object.entries(msg.reactions).map(([emoji, users]) => `${emoji}:${(users as any[]).length}`).join(' ') : '';
+      console.log(`${timestamp}${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent} ${chalk.yellow(reactions)}`);
     }
   }
   console.log(chalk.bold.yellow('--- End of past messages ---'));

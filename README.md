@@ -30,8 +30,7 @@
     -   `/kick <user>`: サーバーからユーザーをキックします。
     -   `/ban <user> [reason]`: サーバーからユーザーをBANします。
     -   `/timeout <user> <duration_in_seconds> [reason]`: ユーザーを一定時間タイムアウトさせます。
-    -   `/timeout <user> <duration_in_seconds> [reason]`: ユーザーを一定時間タイムアウトさせます。
-
+    
 ## プロジェクトの構造
 
 このプロジェクトはTypeScriptで書かれており、以下のファイルで構成されています。

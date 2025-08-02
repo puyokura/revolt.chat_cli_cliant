@@ -122,6 +122,15 @@ export async function handleUpload(channelId: string, token: string) {
   }
 }
 
+import {
+  addReaction,
+  removeReaction,
+  fetchFriends,
+  addFriend,
+  removeFriend,
+  editUser,
+} from './api';
+
 export function handleHelp() {
   console.log(chalk.bold.magenta('--- Available Commands ---'));
   console.log(`${chalk.cyan('/help')}                    - Shows this help message.`);
@@ -148,21 +157,117 @@ export function handleHelp() {
   console.log(chalk.bold.magenta('------------------------'));
 }
 
+export async function handleReact(channelId: string, token: string, args: string[]) {
+    if (args.length < 2) {
+        console.log(chalk.red('Usage: /react <message_id> <emoji>'));
+        return;
+    }
+    const [messageId, emoji] = args;
+    const success = await addReaction(channelId, messageId, emoji, token);
+    if (success) {
+        console.log(chalk.green(`Reacted with ${emoji} to message ${messageId}`));
+    }
+}
+
+export async function handleUnreact(channelId: string, token: string, args: string[]) {
+    if (args.length < 2) {
+        console.log(chalk.red('Usage: /unreact <message_id> <emoji>'));
+        return;
+    }
+    const [messageId, emoji] = args;
+    const success = await removeReaction(channelId, messageId, emoji, token);
+    if (success) {
+        console.log(chalk.green(`Removed reaction ${emoji} from message ${messageId}`));
+    }
+}
+
+export async function handleFriends(token: string, args: string[]) {
+    const action = args[0];
+    const userId = args[1];
+
+    switch (action) {
+        case 'list':
+            const friends = await fetchFriends(token);
+            console.log(chalk.bold.yellow('--- Your Friends ---'));
+            if (friends.length === 0) {
+                console.log('You have no friends yet.');
+            } else {
+                friends.forEach(friend => {
+                    console.log(`${friend.username} (${friend._id})`);
+                });
+            }
+            console.log(chalk.bold.yellow('--------------------'));
+            break;
+        case 'add':
+            if (!userId) {
+                console.log(chalk.red('Usage: /friends add <user_id>'));
+                return;
+            }
+            const addSuccess = await addFriend(userId, token);
+            if (addSuccess) {
+                console.log(chalk.green(`Friend request sent to ${userId}.`));
+            }
+            break;
+        case 'remove':
+            if (!userId) {
+                console.log(chalk.red('Usage: /friends remove <user_id>'));
+                return;
+            }
+            const removeSuccess = await removeFriend(userId, token);
+            if (removeSuccess) {
+                console.log(chalk.green(`Removed friend ${userId}.`));
+            }
+            break;
+        default:
+            console.log(chalk.red('Usage: /friends <list|add|remove> [user_id]'));
+            break;
+    }
+}
+
 export function handleLogout() {
     clearConfig();
     console.log(chalk.green('Logged out. Session token has been cleared.'));
 }
 
-export function handleUserConfig(self: User | null) {
-    if (self) {
-        console.log(chalk.bold.magenta('--- Your User Configuration ---'));
-        console.log(`Username: ${chalk.cyan(self.username)}`);
-        console.log(`Status Text: ${chalk.cyan(self.status?.text || '')}`);
-        // Add more fields as they become available/editable
-        console.log(chalk.bold.magenta('-----------------------------'));
-    } else {
-        console.log(chalk.yellow('Could not find your user information.'));
-    }
+export async function handleUserConfig(self: User | null, token: string, args: string[]) {
+  if (!self) {
+    console.log(chalk.red('User data not available yet.'));
+    return;
+  }
+
+  const [key, ...valueParts] = args;
+  const value = valueParts.join(' ');
+
+  if (!key) {
+    // Display current user config
+    console.log(chalk.bold.yellow('--- Your User Config ---'));
+    console.log(`Username: ${self.username}`);
+    console.log(`ID: ${self._id}`);
+    console.log(`Status: ${self.status?.text || 'Not set'}`);
+    console.log(`Presence: ${self.online ? 'Online' : 'Offline'}`);
+    console.log(chalk.bold.yellow('------------------------'));
+    console.log(chalk.gray('To edit, use: /userconfig <key> <value>'));
+    console.log(chalk.gray('Editable keys: profile_bio'));
+    return;
+  }
+
+  switch (key) {
+    case 'profile_bio':
+      const success = await editUser(self._id, token, { profile: { content: value } });
+      if (success) {
+        console.log(chalk.green('Successfully updated your profile bio.'));
+        // Update local state as well
+        if (self.profile) {
+          self.profile.content = value;
+        } else {
+          self.profile = { content: value };
+        }
+      }
+      break;
+    default:
+      console.log(chalk.red(`Unknown or uneditable config key: ${key}`));
+      break;
+  }
 }
 
 export function handleServerConfig(server: Server | null) {
