@@ -143,6 +143,7 @@ export function handleHelp() {
   console.log(`${chalk.cyan('/reply <id> <msg>')}        - Replies to a message.`);
   console.log(`${chalk.cyan('/edit <id> <msg>')}         - Edits your message.`);
   console.log(`${chalk.cyan('/delete <id>')}              - Deletes your message.`);
+  console.log(`${chalk.cyan('/clear')}                   - Clears the console.`);
   console.log(`${chalk.cyan('/logout')}                  - Deletes session token and exits.`);
   console.log(chalk.bold.magenta('--- Social & Notes ---'));
   console.log(`${chalk.cyan('/friends <list|add|remove>')} - Manages your friends list.`);
@@ -161,6 +162,10 @@ export function handleHelp() {
   console.log(`${chalk.cyan('/leave')}                    - Leaves the current channel.`);
   console.log(`${chalk.cyan('/exit')}                    - Exits the application.`);
   console.log(chalk.bold.magenta('------------------------'));
+}
+
+export function handleClear() {
+    console.clear();
 }
 
 export async function handleReact(channelId: string, token: string, args: string[], messageCache: any[]) {

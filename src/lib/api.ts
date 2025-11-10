@@ -197,6 +197,8 @@ export async function deleteMessage(channelId: string, messageId: string, token:
 
 
 
+import https from 'https';
+
 /**
  * ファイルをAutumnにアップロードし、添付ファイルIDを取得します。
  */
@@ -210,6 +212,10 @@ export async function uploadFile(filePath: string, token: string): Promise<strin
         const form = new FormData();
         form.append('file', fs.createReadStream(filePath));
 
+        const httpsAgent = new https.Agent({
+            rejectUnauthorized: false,
+        });
+
         const response = await axios.post(`${autumnUrl}/attachments`, form, {
             headers: {
                 ...form.getHeaders(),
@@ -217,6 +223,7 @@ export async function uploadFile(filePath: string, token: string): Promise<strin
             },
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
+            httpsAgent,
         });
 
         if (response.status === 200) {

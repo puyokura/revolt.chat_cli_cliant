@@ -123,7 +123,7 @@ export async function promptMessage(channelName: string, typingUsers: string[]):
         {
             type: 'command',
             name: 'command',
-            message: `${typingIndicator}\n${chalk.yellow(`[${channelName}]> `)}`,
+            message: `${typingIndicator}\n${chalk.yellow(`[${channelName}]$`)}`,
             autoCompletion: COMMANDS,
         },
     ]);
@@ -150,10 +150,10 @@ export async function displayPastMessages(messages: any[], users: Map<string, Us
       const author = users.get(msg.author);
       const authorName = author ? author.username : 'Unknown User';
       const timestamp = config.showTimestamps ? chalk.gray(`[${new Date(msg.createdAt).toLocaleTimeString()}]`) : '';
-      const messageId = chalk.gray(`[${msg._id.slice(-6)}]`);
+      const messageId = chalk.gray(`[${msg._id} @${authorName}]`);
       const formattedContent = await formatMessage(msg.content);
       const reactions = msg.reactions ? Object.entries(msg.reactions).map(([emoji, users]) => `${emoji}:${(users as any[]).length}`).join(' ') : '';
-      console.log(`${timestamp}${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent} ${chalk.yellow(reactions)}`);
+      console.log(`${timestamp}${messageId} ${formattedContent} ${chalk.yellow(reactions)}`);
     }
   }
   console.log(chalk.bold.yellow('--- End of past messages ---'));

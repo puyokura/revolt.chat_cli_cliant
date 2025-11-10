@@ -70,6 +70,7 @@ import {
   handleUnreact,
   handleFriends,
   handleNote,
+  handleClear,
 } from './lib/commands';
 
 // --- Application State ---
@@ -123,6 +124,9 @@ async function messageLoop(channel: Channel) {
             break;
         case '/help':
             handleHelp();
+            break;
+        case '/clear':
+            handleClear();
             break;
         case '/nick':
             await handleNick(channel.server, state.self!._id, state.token!, args);
@@ -185,9 +189,8 @@ async function messageLoop(channel: Channel) {
             if (input.trim()) {
                 const sentMessage = await sendMessage(channel._id, state.token!, input);
                 if (sentMessage) {
-                    const messageId = chalk.gray(`[${sentMessage._id.slice(-6)}]`);
                     const formattedInput = await formatMessage(input);
-                    console.log(`\n${messageId} ${chalk.bgGreen.black(` ${state.self?.username} `)} ${formattedInput}`);
+                    console.log(`\n${chalk.yellow(`[${channel.name}]$`)} ${formattedInput}`);
                 }
             }
             break;
@@ -355,7 +358,7 @@ async function main() {
 
       case AppState.CHATTING:
         console.log(chalk.green(`Joining channel: #${state.currentChannel!.name}`));
-        const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!);;
+        const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!, 10);;
         state.messageCache = pastMessages;
         await displayPastMessages(pastMessages, state.users);
         await messageLoop(state.currentChannel!);;
