@@ -142,18 +142,19 @@ export async function promptFilePath(): Promise<string> {
     return filePath;
 }
 
-export async function displayPastMessages(messages: any[], users: Map<string, User>) {
+export async function displayPastMessages(messages: any[], users: Map<string, User>, channelName: string) {
   const config = readConfig();
   console.log(chalk.bold.yellow('\n--- Start of messages ---'));
   if (Array.isArray(messages)) {
     for (const msg of messages.reverse()) {
       const author = users.get(msg.author);
       const authorName = author ? author.username : 'Unknown User';
-      const timestamp = config.showTimestamps ? chalk.gray(`[${new Date(msg.createdAt).toLocaleTimeString()}]`) : '';
-      const messageId = chalk.gray(`[${msg._id} @${authorName}]`);
+      const displayName = author?.displayName || authorName;
+      const timestamp = new Date(msg.createdAt).toLocaleString();
+      const messageId = chalk.gray(`[${channelName} ${displayName}@${authorName}:${author?._id} ${msg._id}]$`);
       const formattedContent = await formatMessage(msg.content);
       const reactions = msg.reactions ? Object.entries(msg.reactions).map(([emoji, users]) => `${emoji}:${(users as any[]).length}`).join(' ') : '';
-      console.log(`${timestamp}${messageId} ${formattedContent} ${chalk.yellow(reactions)}`);
+      console.log(`${messageId} ${formattedContent} ${chalk.yellow(reactions)} ${chalk.gray(timestamp)}`);
     }
   }
   console.log(chalk.bold.yellow('--- End of past messages ---'));

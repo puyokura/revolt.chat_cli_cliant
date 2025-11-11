@@ -4,6 +4,7 @@
 export interface User {
   _id: string;
   username: string;
+  displayName?: string;
   avatar: any;
   badges: number;
   status: {

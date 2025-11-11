@@ -190,7 +190,8 @@ async function messageLoop(channel: Channel) {
                 const sentMessage = await sendMessage(channel._id, state.token!, input);
                 if (sentMessage) {
                     const formattedInput = await formatMessage(input);
-                    console.log(`\n${chalk.yellow(`[${channel.name}]$`)} ${formattedInput}`);
+                    const timestamp = new Date().toLocaleString();
+                    console.log(`\n${chalk.yellow(`[${channel.name}]$`)} ${formattedInput} ${chalk.gray(timestamp)}`);
                 }
             }
             break;
@@ -301,9 +302,11 @@ async function main() {
             if (message.author !== state.self?._id) {
                 const author = state.users.get(message.author);
                 const authorName = author ? author.username : 'Unknown User';
-                const messageId = chalk.gray(`[${message._id.slice(-6)}]`);
+                const displayName = author?.displayName || authorName;
+                const timestamp = new Date(message.createdAt).toLocaleString();
+                const messageId = chalk.gray(`[${state.currentChannel.name} ${displayName}@${authorName}:${author?._id} ${message._id}]$`);
                 const formattedContent = await formatMessage(message.content);
-                console.log(`\n${messageId} ${chalk.bgCyan.black(` ${authorName} `)} ${formattedContent}`);
+                console.log(`\n${messageId} ${formattedContent} ${chalk.gray(timestamp)}`);
             }
         }
         break;
@@ -360,7 +363,7 @@ async function main() {
         console.log(chalk.green(`Joining channel: #${state.currentChannel!.name}`));
         const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!, 10);;
         state.messageCache = pastMessages;
-        await displayPastMessages(pastMessages, state.users);
+        await displayPastMessages(pastMessages, state.users, state.currentChannel!.name);
         await messageLoop(state.currentChannel!);;
         state.appState = AppState.SELECTION; // Go back to selection after leaving
         break;
