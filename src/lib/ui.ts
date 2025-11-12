@@ -109,22 +109,44 @@ const COMMANDS = [
     '/unreact',
     '/friends',
     '/note',
+    '/clear',
 ];
+
+function getTimestampFromUlid(ulid: string): number {
+    const CrockfordBase32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    const timeStr = ulid.substring(0, 10).toUpperCase();
+    let time = 0;
+    for (let i = 0; i < timeStr.length; i++) {
+        const char = timeStr[i];
+        const index = CrockfordBase32.indexOf(char);
+        if (index === -1) return 0;
+        time = time * 32 + index;
+    }
+    return time;
+}
+
+function formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
+}
 
 export async function promptMessage(channelName: string, typingUsers: string[]): Promise<string> {
     let typingIndicator = '';
     if (typingUsers.length > 0) {
         const names = typingUsers.slice(0, 3).join(', ');
         const extra = typingUsers.length > 3 ? ` and ${typingUsers.length - 3} others` : '';
-        typingIndicator = chalk.italic.gray(`\n${names}${extra} are typing...`);
+        typingIndicator = chalk.italic.gray(`${names}${extra} are typing...`);
     }
 
     const { command } = await inquirer.prompt([
         {
             type: 'command',
             name: 'command',
-            message: `${typingIndicator}\n${chalk.yellow(`[${channelName}]$`)}`,
+            message: `\b${typingIndicator ? typingIndicator + '\n' : ''}${chalk.yellow(`[${channelName}]$`)}`,
             autoCompletion: COMMANDS,
+            prefix: '',
         },
     ]);
     return command;
@@ -142,20 +164,35 @@ export async function promptFilePath(): Promise<string> {
     return filePath;
 }
 
-export async function displayPastMessages(messages: any[], users: Map<string, User>, channelName: string) {
-  const config = readConfig();
-  console.log(chalk.bold.yellow('\n--- Start of messages ---'));
+export async function displayPastMessages(messages: any[], users: Map<string, User>, channelName: string, selfId: string, bottomBar: any) {
+  bottomBar.log.write(chalk.bold.yellow('\n--- Start of messages ---'));
   if (Array.isArray(messages)) {
     for (const msg of messages.reverse()) {
       const author = users.get(msg.author);
-      const authorName = author ? author.username : 'Unknown User';
-      const displayName = author?.displayName || authorName;
-      const timestamp = new Date(msg.createdAt).toLocaleString();
-      const messageId = chalk.gray(`[${channelName} ${displayName}@${authorName}:${author?._id} ${msg._id}]$`);
-      const formattedContent = await formatMessage(msg.content);
-      const reactions = msg.reactions ? Object.entries(msg.reactions).map(([emoji, users]) => `${emoji}:${(users as any[]).length}`).join(' ') : '';
-      console.log(`${messageId} ${formattedContent} ${chalk.yellow(reactions)} ${chalk.gray(timestamp)}`);
+      const authorName = author ? `${author.username}#${author.discriminator}` : 'Unknown User';
+      const displayName = author?.nickname || author?.displayName || (author ? author.username : 'Unknown');
+      const timestamp = formatDate(new Date(getTimestampFromUlid(msg._id)));
+      
+      let formattedMessage;
+      if (msg.author === selfId) {
+          const self = users.get(selfId)!;
+          const selfAuthorName = `${self.username}#${self.discriminator}`;
+          const selfDisplayName = self.nickname || self.displayName || self.username;
+          const channelStr = chalk.cyan(channelName);
+          const userStr = chalk.blue(`${selfDisplayName}@${selfAuthorName}`);
+          const idsStr = chalk.gray(`:${self._id} ${msg._id}`);
+          const messageId = `[${channelStr} ${userStr}${idsStr}]$`;
+          formattedMessage = `${messageId} ${await formatMessage(msg.content)} ${chalk.gray(timestamp)}`;
+      } else {
+          const channelStr = chalk.cyan(channelName);
+          const userStr = chalk.blue(`${displayName}@${authorName}`);
+          const idsStr = chalk.gray(`:${author?._id} ${msg._id}`);
+          const messageId = `[${channelStr} ${userStr}${idsStr}]$`;
+          const reactions = msg.reactions ? Object.entries(msg.reactions).map(([emoji, users]) => `${emoji}:${(users as any[]).length}`).join(' ') : '';
+          formattedMessage = `${messageId} ${await formatMessage(msg.content)} ${chalk.yellow(reactions)} ${chalk.gray(timestamp)}`;
+      }
+      bottomBar.log.write(formattedMessage);
     }
   }
-  console.log(chalk.bold.yellow('--- End of past messages ---'));
+  bottomBar.log.write(chalk.bold.yellow('--- End of past messages ---'));
 }

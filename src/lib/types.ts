@@ -4,7 +4,9 @@
 export interface User {
   _id: string;
   username: string;
+  discriminator: string;
   displayName?: string;
+  nickname?: string;
   avatar: any;
   badges: number;
   status: {

@@ -17,7 +17,7 @@ Error: ${error.stack || error}
 // ----------------------
 
 import chalk from 'chalk';
-import inquirer from 'inquirer';
+import inquirer, { ui } from 'inquirer';
 import WebSocket from 'ws';
 import {
   readConfig,
@@ -73,6 +73,27 @@ import {
   handleClear,
 } from './lib/commands';
 
+// --- Helper Functions ---
+function getTimestampFromUlid(ulid: string): number {
+    const CrockfordBase32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    const timeStr = ulid.substring(0, 10).toUpperCase();
+    let time = 0;
+    for (let i = 0; i < timeStr.length; i++) {
+        const char = timeStr[i];
+        const index = CrockfordBase32.indexOf(char);
+        if (index === -1) return 0;
+        time = time * 32 + index;
+    }
+    return time;
+}
+
+function formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
+}
+
 // --- Application State ---
 enum AppState {
   INITIALIZING,
@@ -96,7 +117,7 @@ const state = {
 
 // --- Main Loops ---
 
-async function messageLoop(channel: Channel) {
+async function messageLoop(channel: Channel, bottomBar: any) {
   while (true) {
     const userNames = state.typingUsers.map(id => state.users.get(id)?.username || 'Someone');
     const input = await promptMessage(channel.name, userNames);
@@ -189,9 +210,19 @@ async function messageLoop(channel: Channel) {
             if (input.trim()) {
                 const sentMessage = await sendMessage(channel._id, state.token!, input);
                 if (sentMessage) {
-                    const formattedInput = await formatMessage(input);
-                    const timestamp = new Date().toLocaleString();
-                    console.log(`\n${chalk.yellow(`[${channel.name}]$`)} ${formattedInput} ${chalk.gray(timestamp)}`);
+                    const self = state.self!;
+                    const authorName = `${self.username}#${self.discriminator}`;
+                    const displayName = self.nickname || self.displayName || self.username;
+                    const timestamp = formatDate(new Date(getTimestampFromUlid(sentMessage._id)));
+
+                    const channelStr = chalk.cyan(channel.name);
+                    const userStr = chalk.blue(`${displayName}@${authorName}`);
+                    const idsStr = chalk.gray(`:${self._id} ${sentMessage._id}`);
+                    const messageId = `[${channelStr} ${userStr}${idsStr}]$`;
+
+                    const formattedInput = await formatMessage(sentMessage.content);
+                    
+                    bottomBar.log.write(`${messageId} ${formattedInput} ${chalk.gray(timestamp)}`);
                 }
             }
             break;
@@ -220,6 +251,7 @@ async function selectServerAndChannel(): Promise<Channel | null> {
         const user = state.users.get(member._id.user);
         if (user) {
             user.roles = member.roles;
+            user.nickname = member.nickname;
         }
     });
 
@@ -270,6 +302,7 @@ async function main() {
 
   // --- WebSocket Connection ---
   state.ws = connectWebSocket(state.token!);;
+  const bottomBar = new ui.BottomBar();
   state.ws.on('message', async (data) => {
     const message = JSON.parse(data.toString());
 
@@ -301,12 +334,15 @@ async function main() {
             state.messageCache.push(message);
             if (message.author !== state.self?._id) {
                 const author = state.users.get(message.author);
-                const authorName = author ? author.username : 'Unknown User';
-                const displayName = author?.displayName || authorName;
-                const timestamp = new Date(message.createdAt).toLocaleString();
-                const messageId = chalk.gray(`[${state.currentChannel.name} ${displayName}@${authorName}:${author?._id} ${message._id}]$`);
+                const authorName = author ? `${author.username}#${author.discriminator}` : 'Unknown User';
+                const displayName = author?.nickname || author?.displayName || (author ? author.username : 'Unknown');
+                const timestamp = formatDate(new Date(getTimestampFromUlid(message._id)));
+                const channelStr = chalk.cyan(state.currentChannel.name);
+                const userStr = chalk.blue(`${displayName}@${authorName}`);
+                const idsStr = chalk.gray(`:${author?._id} ${message._id}`);
+                const messageId = `[${channelStr} ${userStr}${idsStr}]$`;
                 const formattedContent = await formatMessage(message.content);
-                console.log(`\n${messageId} ${formattedContent} ${chalk.gray(timestamp)}`);
+                bottomBar.log.write(`${messageId} ${formattedContent} ${chalk.gray(timestamp)}`);
             }
         }
         break;
@@ -363,8 +399,8 @@ async function main() {
         console.log(chalk.green(`Joining channel: #${state.currentChannel!.name}`));
         const pastMessages = await fetchPastMessages(state.currentChannel!._id, state.token!, 10);;
         state.messageCache = pastMessages;
-        await displayPastMessages(pastMessages, state.users, state.currentChannel!.name);
-        await messageLoop(state.currentChannel!);;
+        await displayPastMessages(pastMessages, state.users, state.currentChannel!.name, state.self!._id, bottomBar);
+        await messageLoop(state.currentChannel!, bottomBar);;
         state.appState = AppState.SELECTION; // Go back to selection after leaving
         break;
     }
